@@ -9,7 +9,19 @@ export type CashTransaction = {
   date: string
   amount: number
   paymentMethod: "cash" | "transfer" | "card" | "check" | "other"
-  category: string
+  category:
+    | "Cobranzas"
+    | "Capital"
+    | "Ajuste"
+    | "Alquiler"
+    | "Comida"
+    | "Transporte"
+    | "Servicios"
+    | "Impuestos"
+    | "Salarios"
+    | "Retiro del dueño"
+    | "Pago stock"
+    | "Otros"
   description: string
   relatedTo?: "sale" | "purchase" | "expense" | "other"
   relatedId?: string
@@ -68,7 +80,7 @@ export function CashProvider({ children }: { children: ReactNode }) {
 
   const addTransaction = async (transaction: Omit<CashTransaction, "id">) => {
     try {
-      const uniqueId = `cash_${Date.now()}`
+      const uniqueId = `cash_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
       const { error } = await supabase.from("cash_transactions").insert({
         id: uniqueId,

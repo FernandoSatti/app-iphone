@@ -16,6 +16,7 @@ export type InventoryItem = {
   status: "Disponible" | "Vendido" | "Reservado"
   provider: string
   dateAdded: string
+  productType: string
 }
 
 type InventoryContextType = {
@@ -27,6 +28,7 @@ type InventoryContextType = {
   markItemAsSold: (id: string) => Promise<void>
   markItemsAsSold: (ids: string[]) => Promise<void>
   getItemById: (id: string) => InventoryItem | undefined
+  refreshInventory: () => Promise<void>
   isLoading: boolean
 }
 
@@ -51,9 +53,20 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   const loadInventory = async () => {
     try {
+      console.log("[v0] Starting inventory load...")
       const { data, error } = await supabase.from("inventory").select("*").order("created_at", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error("[v0] Supabase error response:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        })
+        throw error
+      }
+
+      console.log("[v0] Inventory loaded successfully:", data?.length || 0, "items")
 
       const mappedData = (data || []).map((item: any) => ({
         id: item.id,
@@ -68,11 +81,14 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         status: item.status,
         provider: item.provider || "",
         dateAdded: item.created_at?.split("T")[0] || getCurrentLocalDate(),
+        productType: item.product_type || "Celular",
       }))
 
       setInventory(mappedData)
-    } catch (error) {
+    } catch (error: any) {
       console.error("[v0] Error loading inventory:", error)
+      if (error?.message) console.error("[v0] Error message:", error.message)
+      if (error?.status) console.error("[v0] HTTP status:", error.status)
     } finally {
       setIsLoading(false)
     }
@@ -95,6 +111,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         condition: item.condition,
         status: item.status,
         provider: item.provider,
+        product_type: item.productType,
       })
 
       if (error) throw error
@@ -126,6 +143,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       if (updates.condition !== undefined) dbUpdates.condition = updates.condition
       if (updates.status !== undefined) dbUpdates.status = updates.status
       if (updates.provider !== undefined) dbUpdates.provider = updates.provider
+      if (updates.productType !== undefined) dbUpdates.product_type = updates.productType
 
       const { error } = await supabase.from("inventory").update(dbUpdates).eq("id", id)
 
@@ -192,6 +210,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         markItemAsSold,
         markItemsAsSold,
         getItemById,
+        refreshInventory: loadInventory,
         isLoading,
       }}
     >

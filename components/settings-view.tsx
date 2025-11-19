@@ -18,8 +18,23 @@ import {
 } from "@/components/ui/alert-dialog"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { useAuth } from "@/components/auth-context"
-import { Download, Upload, Trash2 } from "lucide-react"
+import { Download, Upload, Trash2, Plus, Edit, ChevronRight } from 'lucide-react'
 import { exportBackup, importBackup } from "@/lib/backup-restore"
+import { useProductCategories, type ProductCategoryFields } from "@/components/product-categories-context"
+import { useProductAttributes, type AttributeType } from "@/components/product-attributes-context"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+
+const validUsers: { [key: string]: { password: string; name: string } } = {
+  vale: { password: "ipro1234", name: "Vale" },
+  riki: { password: "ipro1234", name: "Riki" },
+}
 
 export default function SettingsView() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
@@ -34,10 +49,25 @@ export default function SettingsView() {
   const { user } = useAuth()
   const supabase = createBrowserClient()
 
-  const validUsers: { [key: string]: { password: string; name: string } } = {
-    vale: { password: "ipro1234", name: "Vale" },
-    riki: { password: "ipro1234", name: "Riki" },
-  }
+  const { categories, addCategory, updateCategory, deleteCategory } = useProductCategories()
+  const { attributes, getAttributesByType, addAttribute, deleteAttribute } = useProductAttributes()
+  
+  const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false)
+  const [isSubcategoriesExpanded, setIsSubcategoriesExpanded] = useState(false)
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; fields: ProductCategoryFields } | null>(null)
+  const [categoryName, setCategoryName] = useState("")
+  const [categoryFields, setCategoryFields] = useState<ProductCategoryFields>({
+    model: true,
+    storage: true,
+    color: true,
+    condition: true,
+    battery: true,
+    imei: true,
+  })
+  const [selectedAttributeType, setSelectedAttributeType] = useState<AttributeType>('color')
+  const [newAttributeValue, setNewAttributeValue] = useState('')
 
   const handleResetClick = () => {
     setIsResetDialogOpen(true)
@@ -135,11 +165,84 @@ export default function SettingsView() {
     }
   }
 
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-
   const handleImportClick = () => {
     fileInputRef.current?.click()
   }
+
+  const handleAddCategory = () => {
+    setEditingCategory(null)
+    setCategoryName("")
+    setCategoryFields({
+      model: true,
+      storage: false,
+      color: true,
+      condition: true,
+      battery: false,
+      imei: false,
+    })
+    setIsCategoryModalOpen(true)
+  }
+
+  const handleEditCategory = (category: typeof categories[0]) => {
+    setEditingCategory(category)
+    setCategoryName(category.name)
+    setCategoryFields(category.fields)
+    setIsCategoryModalOpen(true)
+  }
+
+  const handleSaveCategory = async () => {
+    try {
+      if (editingCategory) {
+        await updateCategory(editingCategory.id, categoryName, categoryFields)
+      } else {
+        await addCategory(categoryName, categoryFields)
+      }
+      setIsCategoryModalOpen(false)
+    } catch (error) {
+      alert("Error al guardar categoría")
+    }
+  }
+
+  const handleDeleteCategory = async (id: string) => {
+    if (confirm("¿Estás seguro de que quieres eliminar esta categoría?")) {
+      try {
+        await deleteCategory(id)
+      } catch (error) {
+        alert("Error al eliminar categoría")
+      }
+    }
+  }
+
+  const handleAddAttribute = (type: AttributeType) => {
+    setSelectedAttributeType(type)
+    setNewAttributeValue('')
+    setIsAttributeModalOpen(true)
+  }
+
+  const handleSaveAttribute = async () => {
+    if (!newAttributeValue.trim()) {
+      alert('Por favor ingresa un valor')
+      return
+    }
+    try {
+      await addAttribute(selectedAttributeType, newAttributeValue.trim())
+      setIsAttributeModalOpen(false)
+    } catch (error) {
+      alert('Error al agregar atributo. Puede que ya exista.')
+    }
+  }
+
+  const handleDeleteAttribute = async (id: string) => {
+    if (confirm("¿Estás seguro de que quieres eliminar este atributo?")) {
+      try {
+        await deleteAttribute(id)
+      } catch (error) {
+        alert("Error al eliminar atributo")
+      }
+    }
+  }
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   return (
     <div className="grid gap-6">
@@ -156,7 +259,7 @@ export default function SettingsView() {
                 <h3 className="font-medium">Exportar Backup</h3>
                 <p className="text-sm text-gray-500">Descarga todas las tablas en formato Excel (.xlsx)</p>
               </div>
-              <Button onClick={handleExportBackup} disabled={isExporting} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleExportBackup} disabled={isExporting} className="bg-blue-600 hover:bg-blue-700 text-white">
                 <Download className="mr-2 h-4 w-4" />
                 {isExporting ? "Exportando..." : "Exportar"}
               </Button>
@@ -181,7 +284,7 @@ export default function SettingsView() {
                 <Button
                   onClick={handleImportClick}
                   disabled={isImporting}
-                  className="bg-green-600 hover:bg-green-700 cursor-pointer"
+                  className="bg-green-600 hover:bg-green-700 cursor-pointer text-white"
                 >
                   <Upload className="mr-2 h-4 w-4" />
                   {isImporting ? "Importando..." : "Importar"}
@@ -207,6 +310,156 @@ export default function SettingsView() {
           <CardDescription>Opciones de configuración y mantenimiento</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Categories section */}
+          <div className="border-b pb-4">
+            <button
+              onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
+              className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <ChevronRight className={`h-5 w-5 transition-transform ${isCategoriesExpanded ? 'rotate-90' : ''}`} />
+                <div className="text-left">
+                  <h3 className="font-medium">Categorías de Productos</h3>
+                  <p className="text-sm text-gray-500">Gestiona los tipos de productos y sus campos configurables</p>
+                </div>
+              </div>
+            </button>
+
+            {isCategoriesExpanded && (
+              <div className="mt-4 space-y-3 pl-8">
+                <Button onClick={handleAddCategory} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva Categoría
+                </Button>
+                <div className="space-y-2">
+                  {categories.map((category) => (
+                    <div key={category.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                      <div className="flex-1">
+                        <h4 className="font-medium">{category.name}</h4>
+                        <p className="text-sm text-gray-500">
+                          Campos activos: {Object.entries(category.fields).filter(([_, active]) => active).map(([field]) => field).join(", ")}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditCategory(category)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteCategory(category.id)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Subcategories section */}
+          <div className="border-b pb-4">
+            <button
+              onClick={() => setIsSubcategoriesExpanded(!isSubcategoriesExpanded)}
+              className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <ChevronRight className={`h-5 w-5 transition-transform ${isSubcategoriesExpanded ? 'rotate-90' : ''}`} />
+                <div className="text-left">
+                  <h3 className="font-medium">Subcategorías de Productos</h3>
+                  <p className="text-sm text-gray-500">Gestiona colores, almacenamientos y estados disponibles</p>
+                </div>
+              </div>
+            </button>
+
+            {isSubcategoriesExpanded && (
+              <div className="mt-4 space-y-4 pl-8">
+                {/* Colors */}
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Colores</h4>
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddAttribute('color')}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      Agregar
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {getAttributesByType('color').map((attr) => (
+                      <div key={attr.id} className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded px-3 py-1 text-sm">
+                        <span>{attr.value}</span>
+                        <button
+                          onClick={() => handleDeleteAttribute(attr.id)}
+                          className="ml-1 text-red-500 hover:text-red-700"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Storage */}
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Almacenamientos</h4>
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddAttribute('storage')}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      Agregar
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {getAttributesByType('storage').map((attr) => (
+                      <div key={attr.id} className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded px-3 py-1 text-sm">
+                        <span>{attr.value}</span>
+                        <button
+                          onClick={() => handleDeleteAttribute(attr.id)}
+                          className="ml-1 text-red-500 hover:text-red-700"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Conditions */}
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Estados</h4>
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddAttribute('condition')}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      Agregar
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {getAttributesByType('condition').map((attr) => (
+                      <div key={attr.id} className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-3 py-1 text-sm">
+                        <span>{attr.value}</span>
+                        <button
+                          onClick={() => handleDeleteAttribute(attr.id)}
+                          className="ml-1 text-red-500 hover:text-red-700"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Reset section */}
           <div className="border-t pt-4">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -230,7 +483,7 @@ export default function SettingsView() {
 
       {/* Reset confirmation dialog */}
       <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg- text-slate-50white bg-slate-50">
           {!isConfirmingPassword ? (
             <>
               <AlertDialogHeader>
@@ -276,7 +529,7 @@ export default function SettingsView() {
 
               <div className="flex gap-3 justify-end pt-4">
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <Button onClick={handleVerifyCredentials} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleVerifyCredentials} className="bg-blue-600 hover:bg-blue-700 text-white">
                   Verificar
                 </Button>
               </div>
@@ -310,6 +563,94 @@ export default function SettingsView() {
           )}
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Category Modal */}
+      <Dialog open={isCategoryModalOpen} onOpenChange={setIsCategoryModalOpen}>
+        <DialogContent className="max-w-md bg-slate-50">
+          <DialogHeader>
+            <DialogTitle>{editingCategory ? "Editar Categoría" : "Nueva Categoría"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="categoryName">Nombre de la Categoría</Label>
+              <Input
+                id="categoryName"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                placeholder="Ej: Accesorio, Cargador, Notebook"
+              />
+            </div>
+            
+            <div>
+              <Label>Campos disponibles</Label>
+              <div className="space-y-2 mt-2">
+                {Object.entries(categoryFields).map(([field, active]) => (
+                  <div key={field} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={field}
+                      checked={active}
+                      onCheckedChange={(checked) =>
+                        setCategoryFields({ ...categoryFields, [field]: !!checked })
+                      }
+                    />
+                    <label htmlFor={field} className="text-sm capitalize cursor-pointer">
+                      {field === "model" ? "Modelo" :
+                       field === "storage" ? "Almacenamiento" :
+                       field === "color" ? "Color" :
+                       field === "condition" ? "Estado/Condición" :
+                       field === "battery" ? "Batería" :
+                       field === "imei" ? "IMEI" : field}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCategoryModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveCategory} className="bg-green-600 hover:bg-green-700 text-white">
+              {editingCategory ? "Guardar Cambios" : "Crear Categoría"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attribute Modal */}
+      <Dialog open={isAttributeModalOpen} onOpenChange={setIsAttributeModalOpen}>
+        <DialogContent className="max-w-md bg-slate-50">
+          <DialogHeader>
+            <DialogTitle>
+              Agregar {selectedAttributeType === 'color' ? 'Color' : 
+                       selectedAttributeType === 'storage' ? 'Almacenamiento' : 'Estado'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="attributeValue">Valor</Label>
+              <Input
+                id="attributeValue"
+                value={newAttributeValue}
+                onChange={(e) => setNewAttributeValue(e.target.value)}
+                placeholder={
+                  selectedAttributeType === 'color' ? 'Ej: Naranja' :
+                  selectedAttributeType === 'storage' ? 'Ej: 2TB' :
+                  'Ej: Como Nuevo'
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAttributeModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveAttribute} className="bg-green-600 hover:bg-green-700 text-white">
+              Agregar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -2,7 +2,24 @@
 
 import { useState, useCallback, useEffect } from "react"
 import Link from "next/link"
-import { ChevronDown, ChevronRight, CircleUser, Home, LogOut, Package, PlusCircle, Trash2, Users, Wallet, CalendarIcon, BookOpen, DollarSign, Building2, Menu, Settings } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  CircleUser,
+  Home,
+  LogOut,
+  Package,
+  PlusCircle,
+  Trash2,
+  Users,
+  Wallet,
+  CalendarIcon,
+  BookOpen,
+  DollarSign,
+  Building2,
+  Menu,
+  Settings,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -133,6 +150,7 @@ export default function DashboardPage() {
   const [quickPeriod, setQuickPeriod] = useState<string>("current-year")
   const [isLoading, setIsLoading] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [initialCategory, setInitialCategory] = useState<string | undefined>(undefined)
 
   const { getAccountsWithBalance, registerSaleStatusCallback } = useAccounts()
   const { getCashBalance, transactions } = useCash()
@@ -374,7 +392,7 @@ export default function DashboardPage() {
 
     const transactionDate = parseLocalDate(transaction.date)
     const fromDate = dateRange.from ? new Date(dateRange.from) : null
-    const toDate = dateRange.to ? new Date(date.to) : null
+    const toDate = dateRange.to ? new Date(dateRange.to) : null
 
     if (fromDate && toDate) {
       return transactionDate >= fromDate && transactionDate <= toDate
@@ -386,32 +404,41 @@ export default function DashboardPage() {
     return true
   })
 
+  const salesWithPayments = new Set(
+    filteredTransactions
+      .filter((t) => t.type === "income" && t.category === "Cobranzas")
+      .map((t) => {
+        return null // Por ahora no podemos identificar qué ventas tienen pagos
+      })
+      .filter(Boolean),
+  )
+
   const businessExpenses = filteredTransactions
     .filter((transaction) => transaction.type === "expense" && transaction.expenseType === "operational")
     .reduce((sum, transaction) => sum + transaction.amount, 0)
 
-  const netProfit = totalGrossProfit - businessExpenses
+  const totalIncome = filteredTransactions
+    .filter((transaction) => transaction.type === "income" && transaction.category === "Cobranzas")
+    .reduce((sum, transaction) => sum + transaction.amount, 0)
 
-  // Para cada venta acreditada, el ingreso es: total - valor_del_canje
   const totalCashReceived = filteredSales
     .filter((sale) => sale.status === "Acreditado")
     .reduce((sum, sale) => {
-      // El tradeIn contiene el valor del canje, se resta del total para obtener efectivo real
       const tradeInValue = sale.tradeIn ? Number.parseFloat(sale.tradeIn.match(/\$([0-9.]+)/)?.[1] || "0") : 0
       const cashOnly = sale.total - tradeInValue
       return sum + Math.max(0, cashOnly)
     }, 0)
 
-  const clientPayments = filteredTransactions
-    .filter((transaction) => transaction.type === "income" && transaction.category === "Cobranzas")
-    .reduce((sum, transaction) => sum + transaction.amount, 0)
-
-  const totalIncome = totalCashReceived + clientPayments
-
   const totalCosts = filteredSales.reduce((sum, sale) => sum + (sale.totalCost || 0), 0)
+
+  const netProfit = totalGrossProfit - businessExpenses
 
   const accountsWithBalance = getAccountsWithBalance()
   const totalPendingBalance = accountsWithBalance.reduce((sum, acc) => sum + acc.balance, 0)
+
+  const cashBalance = filteredTransactions.reduce((balance, transaction) => {
+    return transaction.type === "income" ? balance + transaction.amount : balance - transaction.amount
+  }, 0)
 
   if (!isAuthenticated) {
     return <LoginScreen />
@@ -459,7 +486,7 @@ export default function DashboardPage() {
       <div>
         <button
           onClick={() => setIsInventoryExpanded(!isInventoryExpanded)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
         >
           <Package className="h-4 w-4" />
           Inventario
@@ -484,6 +511,17 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => {
+                setIsInventoryModalOpen(true)
+                setInitialCategory("Accesorio")
+                onItemClick?.()
+              }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
+            >
+              <PlusCircle className="h-3 w-3" />
+              Nuevo Accesorio
+            </button>
+            <button
+              onClick={() => {
                 setCurrentView("catalog")
                 onItemClick?.()
               }}
@@ -501,7 +539,7 @@ export default function DashboardPage() {
       <div>
         <button
           onClick={() => setIsClientsExpanded(!isClientsExpanded)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
         >
           <Users className="h-4 w-4" />
           Clientes
@@ -555,7 +593,7 @@ export default function DashboardPage() {
       <div>
         <button
           onClick={() => setIsProvidersExpanded(!isProvidersExpanded)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
         >
           <Building2 className="h-4 w-4" />
           Proveedores
@@ -675,80 +713,84 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col bg-gray-50/50">
-          <header className="flex h-14 lg:h-[60px] items-center gap-4 border-b bg-white px-4 lg:px-6">
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden">
-                  <Menu className="h-6 w-6" />
-                  <span className="sr-only">Abrir menú</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[280px] p-0 bg-gray-800 text-white border-gray-700">
-                <div className="flex h-full max-h-screen flex-col gap-2">
-                  <div className="flex h-[60px] items-center border-b border-gray-700 px-6">
-                    <Link href="#" className="flex items-center gap-2 font-semibold text-lg">
-                      <Wallet className="h-6 w-6" />
-                      <span>Ipro</span>
-                    </Link>
+          <header className="flex flex-col lg:flex-row lg:h-[60px] items-start lg:items-center gap-2 lg:gap-4 border-b bg-white px-4 py-3 lg:py-0 lg:px-6">
+            <div className="flex items-center gap-4 w-full lg:w-auto">
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="lg:hidden flex-shrink-0">
+                    <Menu className="h-6 w-6" />
+                    <span className="sr-only">Abrir menú</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[280px] p-0 bg-gray-800 text-white border-gray-700">
+                  <div className="flex h-full max-h-screen flex-col gap-2">
+                    <div className="flex h-[60px] items-center border-b border-gray-700 px-6">
+                      <Link href="#" className="flex items-center gap-2 font-semibold text-lg">
+                        <Wallet className="h-6 w-6" />
+                        <span>Ipro</span>
+                      </Link>
+                    </div>
+                    <div className="flex-1 overflow-auto py-2">
+                      <NavigationMenu onItemClick={() => setIsMobileMenuOpen(false)} />
+                    </div>
+                    <div className="border-t border-gray-700 p-4">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-gray-400 hover:bg-gray-700 hover:text-white"
+                        onClick={() => {
+                          logout()
+                          setIsMobileMenuOpen(false)
+                        }}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Cerrar sesión
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex-1 overflow-auto py-2">
-                    <NavigationMenu onItemClick={() => setIsMobileMenuOpen(false)} />
-                  </div>
-                  <div className="border-t border-gray-700 p-4">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-gray-400 hover:bg-gray-700 hover:text-white"
-                      onClick={() => {
-                        logout()
-                        setIsMobileMenuOpen(false)
-                      }}
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Cerrar sesión
-                    </Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </SheetContent>
+              </Sheet>
 
-            <div className="flex-1">
-              {currentView === "dashboard" && (
-                <div className="flex items-center gap-4">
-                  {quickPeriod === "current-month" && (
-                    <p className="text-sm text-blue-600">
-                      Mostrando datos de este mes ({format(new Date(), "MMMM yyyy")})
-                    </p>
-                  )}
-                  {quickPeriod === "last-month" && (
-                    <p className="text-sm text-blue-600">
-                      Mostrando datos del mes anterior (
-                      {format(new Date(new Date().getFullYear(), new Date().getMonth() - 1), "MMMM yyyy")})
-                    </p>
-                  )}
-                  {quickPeriod === "current-year" && (
-                    <p className="text-sm text-blue-600">Mostrando datos de este año ({new Date().getFullYear()})</p>
-                  )}
-                  {quickPeriod === "last-year" && (
-                    <p className="text-sm text-blue-600">
-                      Mostrando datos del año anterior ({new Date().getFullYear() - 1})
-                    </p>
-                  )}
-                  {quickPeriod === "custom" && selectedMonth !== "all" && (
-                    <p className="text-sm text-blue-600">
-                      Mostrando datos de {monthOptions.find((m) => m.value === selectedMonth)?.label} {selectedYear}
-                    </p>
-                  )}
-                  {quickPeriod === "custom" && selectedMonth === "all" && date?.from && (
-                    <p className="text-sm text-blue-600">
-                      Mostrando datos del {formatDisplayDate(date.from)}
-                      {date.to && ` al ${formatDisplayDate(date.to)}`}
-                    </p>
-                  )}
-                </div>
-              )}
+              <div className="flex-1 lg:flex-initial">
+                {currentView === "dashboard" && (
+                  <>
+                    {quickPeriod === "current-month" && (
+                      <p className="text-sm lg:text-base text-blue-600 font-medium">
+                        Mostrando datos de este mes ({format(new Date(), "MMMM yyyy")})
+                      </p>
+                    )}
+                    {quickPeriod === "last-month" && (
+                      <p className="text-sm lg:text-base text-blue-600 font-medium">
+                        Mostrando datos del mes anterior (
+                        {format(new Date(new Date().getFullYear(), new Date().getMonth() - 1), "MMMM yyyy")})
+                      </p>
+                    )}
+                    {quickPeriod === "current-year" && (
+                      <p className="text-sm lg:text-base text-blue-600 font-medium">
+                        Mostrando datos de este año ({new Date().getFullYear()})
+                      </p>
+                    )}
+                    {quickPeriod === "last-year" && (
+                      <p className="text-sm lg:text-base text-blue-600 font-medium">
+                        Mostrando datos del año anterior ({new Date().getFullYear() - 1})
+                      </p>
+                    )}
+                    {quickPeriod === "custom" && selectedMonth !== "all" && (
+                      <p className="text-sm lg:text-base text-blue-600 font-medium">
+                        Mostrando datos de {monthOptions.find((m) => m.value === selectedMonth)?.label} {selectedYear}
+                      </p>
+                    )}
+                    {quickPeriod === "custom" && selectedMonth === "all" && date?.from && (
+                      <p className="text-sm lg:text-base text-blue-600 font-medium">
+                        Mostrando datos del {formatDisplayDate(date.from)}
+                        {date.to && ` al ${formatDisplayDate(date.to)}`}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 lg:gap-4 overflow-x-auto">
+            <div className="flex items-center gap-2 w-full lg:w-auto lg:ml-auto">
               <Select
                 value={quickPeriod}
                 onValueChange={(value) => {
@@ -758,7 +800,7 @@ export default function DashboardPage() {
                   }
                 }}
               >
-                <SelectTrigger className="w-[120px] lg:w-[140px]">
+                <SelectTrigger className="w-full lg:w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -840,88 +882,106 @@ export default function DashboardPage() {
               )}
             </div>
           </header>
-          <main className="flex-1 p-4 sm:p-6">
+          <main className="flex-1 p-4 lg:p-6">
             {currentView === "dashboard" && (
-              <div className="grid gap-6">
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid gap-4 lg:gap-6">
+                <div className="grid gap-4 lg:gap-6 max-w-sm">
                   <DolarBlueCard />
                 </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
-                  <Card className="bg-green-50 border-green-200 col-span-1">
-                    <CardHeader className="pb-2">
-                      <CardDescription className="text-green-700">Ingresos</CardDescription>
-                      <CardTitle className="text-4xl font-bold text-green-900">
+                <div className="grid gap-4 lg:gap-6 lg:grid-cols-5">
+                  <Card className="bg-green-50 border-green-200 max-w-sm">
+                    <CardHeader className="pb-3">
+                      <CardDescription className="text-green-700 text-sm font-medium">Ingresos</CardDescription>
+                      <CardTitle className="text-3xl lg:text-4xl font-bold text-green-900">
                         US${totalIncome.toLocaleString()}
                       </CardTitle>
-                      <CardDescription className="text-xs text-green-600">
-                        Efectivo recibido (ventas + cobranzas)
+                      <CardDescription className="text-xs text-green-600 mt-1">
+                        Ingresos operativos (ventas y cobranzas)
                       </CardDescription>
                     </CardHeader>
                   </Card>
-                  <Card className="bg-red-50 border-red-200 col-span-1">
-                    <CardHeader className="pb-2">
-                      <CardDescription className="text-red-700">Costos</CardDescription>
-                      <CardTitle className="text-4xl font-bold text-red-900">${totalCosts.toLocaleString()}</CardTitle>
-                      <CardDescription className="text-xs text-red-600">Costo del stock vendido</CardDescription>
+
+                  <Card className="bg-red-50 border-red-200 max-w-sm">
+                    <CardHeader className="pb-3">
+                      <CardDescription className="text-red-700 text-sm font-medium">Costos</CardDescription>
+                      <CardTitle className="text-3xl lg:text-4xl font-bold text-red-900">
+                        ${totalCosts.toLocaleString()}
+                      </CardTitle>
+                      <CardDescription className="text-xs text-red-600 mt-1">Costo del stock vendido</CardDescription>
                     </CardHeader>
                   </Card>
-                  <Card className="bg-sky-50 border-sky-200 col-span-1">
-                    <CardHeader className="pb-2">
-                      <CardDescription className="text-sky-700">Unidades vendidas</CardDescription>
-                      <CardTitle className="text-4xl font-bold text-sky-900">{filteredSales.length}</CardTitle>
+
+                  <Card className="bg-sky-50 border-sky-200 max-w-sm">
+                    <CardHeader className="pb-3">
+                      <CardDescription className="text-sky-700 text-sm font-medium">Unidades vendidas</CardDescription>
+                      <CardTitle className="text-3xl lg:text-4xl font-bold text-sky-900">
+                        {filteredSales.length}
+                      </CardTitle>
                     </CardHeader>
                   </Card>
-                  <Card className="bg-fuchsia-50 border-fuchsia-200 col-span-1">
-                    <CardHeader>
-                      <CardTitle>Ganancia neta</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-4xl font-bold ${netProfit >= 0 ? "text-fuchsia-900" : "text-red-900"}`}>
+
+                  <Card className="bg-fuchsia-50 border-fuchsia-200 max-w-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium">Ganancia neta</CardTitle>
+                      <div className="mt-2">
+                        <span
+                          className={`text-3xl lg:text-4xl font-bold ${netProfit >= 0 ? "text-fuchsia-900" : "text-red-900"}`}
+                        >
                           ${netProfit.toLocaleString()}
                         </span>
-                        <span className="text-xs text-fuchsia-600">Ganancia bruta - Gastos operativos</span>
                       </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-rose-50 border-rose-200 col-span-1">
-                    <CardHeader>
-                      <CardTitle>Ganancia bruta</CardTitle>
+                      <CardDescription className="text-xs text-fuchsia-600 mt-1">
+                        Ganancia bruta - Gastos operativos
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <span className="text-4xl font-bold text-rose-900">${totalGrossProfit.toLocaleString()}</span>
-                        <span className="text-xs text-rose-600">Ventas totales - Costos del producto vendido</span>
-                      </div>
-                    </CardContent>
                   </Card>
-                  <Card className="bg-indigo-50 border-indigo-200 col-span-1">
-                    <CardHeader>
-                      <CardTitle>Saldo en Caja</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`text-4xl font-bold ${getCashBalance() >= 0 ? "text-indigo-900" : "text-red-900"}`}
-                        >
-                          ${getCashBalance().toLocaleString()}
+
+                  <Card className="bg-rose-50 border-rose-200 max-w-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium">Ganancia bruta</CardTitle>
+                      <div className="mt-2">
+                        <span className="text-3xl lg:text-4xl font-bold text-rose-900">
+                          ${totalGrossProfit.toLocaleString()}
                         </span>
-                        <span className="text-xs text-indigo-600">Efectivo disponible</span>
                       </div>
-                    </CardContent>
+                      <CardDescription className="text-xs text-rose-600 mt-1">
+                        Ventas totales - Costos del producto vendido
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+
+                  <Card className="bg-indigo-50 border-indigo-200 max-w-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium">Saldo en Caja</CardTitle>
+                      <div className="mt-2">
+                        <span
+                          className={`text-3xl lg:text-4xl font-bold ${cashBalance >= 0 ? "text-indigo-900" : "text-red-900"}`}
+                        >
+                          ${cashBalance.toLocaleString()}
+                        </span>
+                      </div>
+                      <CardDescription className="text-xs text-indigo-600 mt-1">
+                        Total ingresos - Total egresos (incluye capital)
+                      </CardDescription>
+                    </CardHeader>
                   </Card>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-row items-start sm:items-center gap-3">
                   <Button
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-green-600 hover:bg-green-700 text-white w-auto"
                     onClick={() => setIsNewSaleModalOpen(true)}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Nueva venta
                   </Button>
-                  <Button variant="outline" className="bg-white" onClick={() => setCurrentView("catalog")}>
+
+                  <Button
+                    variant="outline"
+                    className="bg-white hover:bg-gray-100 transition-colors w-auto"
+                    onClick={() => setCurrentView("catalog")}
+                  >
                     <BookOpen className="mr-2 h-4 w-4" />
                     Ver stock
                   </Button>
@@ -947,51 +1007,59 @@ export default function DashboardPage() {
                         )}
                       </div>
                     ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Estado</TableHead>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Cliente</TableHead>
-                            <TableHead>Vendedor</TableHead>
-                            <TableHead>Canje</TableHead>
-                            <TableHead>Pedido</TableHead>
-                            <TableHead className="text-right">Ganancia bruta</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
-                            <TableHead className="text-right">Descuento</TableHead>
-                            <TableHead className="w-[40px]"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredSales.map((sale) => (
-                            <TableRow key={sale.id}>
-                              <TableCell>{getStatusBadge(sale.status, sale.id)}</TableCell>
-                              <TableCell>
-                                {formatDisplayDate(sale.date)}
-                                <br />
-                                <span className="text-xs text-gray-500">{sale.time}</span>
-                              </TableCell>
-                              <TableCell className="font-medium">{sale.client}</TableCell>
-                              <TableCell>{sale.salesperson}</TableCell>
-                              <TableCell className="text-xs whitespace-pre-wrap">{sale.tradeIn || "--"}</TableCell>
-                              <TableCell className="text-xs">{sale.order}</TableCell>
-                              <TableCell className="text-right font-medium">${sale.grossProfit}</TableCell>
-                              <TableCell className="text-right font-medium">${sale.total}</TableCell>
-                              <TableCell className="text-right text-red-600">${sale.discount}</TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="w-8 h-8"
-                                  onClick={() => handleDeleteSale(sale.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </TableCell>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="min-w-[120px]">Estado</TableHead>
+                              <TableHead className="min-w-[100px]">Fecha</TableHead>
+                              <TableHead className="min-w-[120px]">Cliente</TableHead>
+                              <TableHead className="min-w-[100px]">Vendedor</TableHead>
+                              <TableHead className="min-w-[100px]">Canje</TableHead>
+                              <TableHead className="min-w-[150px]">Pedido</TableHead>
+                              <TableHead className="text-right min-w-[100px]">Ganancia bruta</TableHead>
+                              <TableHead className="text-right min-w-[100px]">Total</TableHead>
+                              <TableHead className="text-right min-w-[100px]">Descuento</TableHead>
+                              <TableHead className="w-[40px]"></TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredSales.map((sale) => (
+                              <TableRow key={sale.id}>
+                                <TableCell>{getStatusBadge(sale.status, sale.id)}</TableCell>
+                                <TableCell className="whitespace-nowrap">
+                                  {formatDisplayDate(sale.date)}
+                                  <br />
+                                  <span className="text-xs text-gray-500">{sale.time}</span>
+                                </TableCell>
+                                <TableCell className="font-medium">{sale.client}</TableCell>
+                                <TableCell>{sale.salesperson}</TableCell>
+                                <TableCell className="text-xs whitespace-pre-wrap">{sale.tradeIn || "--"}</TableCell>
+                                <TableCell className="text-xs">{sale.order}</TableCell>
+                                <TableCell className="text-right font-medium whitespace-nowrap">
+                                  ${sale.grossProfit}
+                                </TableCell>
+                                <TableCell className="text-right font-medium whitespace-nowrap">
+                                  ${sale.total}
+                                </TableCell>
+                                <TableCell className="text-right text-red-600 whitespace-nowrap">
+                                  ${sale.discount}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="w-8 h-8"
+                                    onClick={() => handleDeleteSale(sale.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -1011,7 +1079,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <InventoryModal isOpen={isInventoryModalOpen} onOpenChange={setIsInventoryModalOpen} />
+      <InventoryModal
+        isOpen={isInventoryModalOpen}
+        onOpenChange={(open) => {
+          setIsInventoryModalOpen(open)
+          if (!open) setInitialCategory(undefined)
+        }}
+        initialCategory={initialCategory}
+      />
       <ClientsModal isOpen={isClientsModalOpen} onOpenChange={setIsClientsModalOpen} />
       <ProvidersModal isOpen={isProvidersModalOpen} onOpenChange={setIsProvidersModalOpen} />
     </>

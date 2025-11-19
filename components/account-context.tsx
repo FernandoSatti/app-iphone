@@ -2,14 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { createBrowserClient } from "@/lib/supabase/client"
-
-const getCurrentLocalDate = () => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, "0")
-  const day = String(now.getDate()).padStart(2, "0")
-  return `${year}-${month}-${day}`
-}
+import { getCurrentISODate } from "@/lib/date-helpers"
 
 export type AccountTransaction = {
   id: string
@@ -71,6 +64,7 @@ type AccountContextType = {
   getProvidersWithBalance: () => ProviderAccount[]
   updateSaleStatus: (saleId: string, newStatus: "Acreditado" | "Pendiente" | "Entregado") => void
   getAllClientAccounts: () => ClientAccount[]
+  getAllProviderAccounts: () => ProviderAccount[]
   registerSaleStatusCallback: (callback: (saleId: string, newStatus: "Acreditado" | "Pendiente") => void) => void
 }
 
@@ -164,7 +158,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const transaction: AccountTransaction = {
       id: `trans_${Date.now()}`,
       type: "sale",
-      date: getCurrentLocalDate(),
+      date: getCurrentISODate(),
       description,
       amount,
       saleId,
@@ -216,7 +210,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const transaction: AccountTransaction = {
       id: `trans_${Date.now()}`,
       type: "payment",
-      date: getCurrentLocalDate(),
+      date: getCurrentISODate(),
       description,
       amount: -amount,
     }
@@ -278,7 +272,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const transaction: AccountTransaction = {
       id: `trans_${Date.now()}`,
       type: "purchase",
-      date: getCurrentLocalDate(),
+      date: getCurrentISODate(),
       description,
       amount,
       dueDate,
@@ -328,7 +322,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const transaction: AccountTransaction = {
       id: `trans_${Date.now()}`,
       type: "payment_to_provider",
-      date: getCurrentLocalDate(),
+      date: getCurrentISODate(),
       description,
       amount: -amount,
     }
@@ -377,7 +371,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const transaction: AccountTransaction = {
       id: `trans_${Date.now()}`,
       type: "manual_debt",
-      date: getCurrentLocalDate(),
+      date: getCurrentISODate(),
       description,
       amount,
       dueDate,
@@ -494,6 +488,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     return clientAccounts
   }
 
+  const getAllProviderAccounts = () => {
+    return providerAccounts
+  }
+
   const updateSaleStatus = (saleId: string, newStatus: "Acreditado" | "Pendiente" | "Entregado") => {
     console.log(`[v0] Sale status update requested: ${saleId} -> ${newStatus}`)
   }
@@ -522,6 +520,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         getProvidersWithBalance,
         updateSaleStatus,
         getAllClientAccounts,
+        getAllProviderAccounts,
         registerSaleStatusCallback,
       }}
     >

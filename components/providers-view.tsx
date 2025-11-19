@@ -1,28 +1,25 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Search, Trash2, Building2, Phone, Mail } from 'lucide-react';
-import { useProviders } from "@/components/provider-context";
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Search, Trash2, Building2, Phone, Mail } from "lucide-react"
+import { useProviders } from "@/components/provider-context"
+import { formatDisplayDate } from "@/lib/date-helpers"
 
 const ProvidersView = () => {
-  const { providers, removeProvider, searchProviders } = useProviders();
-  const [searchTerm, setSearchTerm] = useState("");
+  const { providers, removeProvider, searchProviders } = useProviders()
+  const [searchTerm, setSearchTerm] = useState("")
 
-  const filteredProviders = searchProviders(searchTerm);
+  const filteredProviders = searchProviders(searchTerm)
 
   const handleDeleteProvider = (providerId: string) => {
     if (confirm("¿Estás seguro de que quieres eliminar este proveedor?")) {
-      removeProvider(providerId);
+      removeProvider(providerId)
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-AR');
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -58,9 +55,7 @@ const ProvidersView = () => {
               <Building2 className="h-4 w-4" />
               Total Proveedores
             </CardTitle>
-            <div className="text-2xl font-bold text-blue-900">
-              {providers.length}
-            </div>
+            <div className="text-2xl font-bold text-blue-900">{providers.length}</div>
           </CardHeader>
         </Card>
         <Card className="bg-green-50 border-green-200">
@@ -69,9 +64,7 @@ const ProvidersView = () => {
               <Mail className="h-4 w-4" />
               Con Email
             </CardTitle>
-            <div className="text-2xl font-bold text-green-900">
-              {providers.filter(p => p.email).length}
-            </div>
+            <div className="text-2xl font-bold text-green-900">{providers.filter((p) => p.email).length}</div>
           </CardHeader>
         </Card>
         <Card className="bg-purple-50 border-purple-200">
@@ -80,9 +73,7 @@ const ProvidersView = () => {
               <Phone className="h-4 w-4" />
               Contactos Activos
             </CardTitle>
-            <div className="text-2xl font-bold text-purple-900">
-              {providers.length}
-            </div>
+            <div className="text-2xl font-bold text-purple-900">{providers.length}</div>
           </CardHeader>
         </Card>
       </div>
@@ -143,13 +134,11 @@ const ProvidersView = () => {
                           <span className="text-gray-400">--</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {formatDate(provider.dateAdded)}
-                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">{formatDisplayDate(provider.dateAdded)}</TableCell>
                       <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8"
                           onClick={() => handleDeleteProvider(provider.id)}
                         >
@@ -165,7 +154,7 @@ const ProvidersView = () => {
         </CardContent>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default ProvidersView;
+export default ProvidersView

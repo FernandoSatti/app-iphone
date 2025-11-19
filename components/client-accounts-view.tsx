@@ -14,6 +14,7 @@ import { useAccounts } from "./account-context"
 import { useCash } from "./cash-context"
 import type { DateRange } from "react-day-picker"
 import { format } from "date-fns"
+import { parseLocalDate, formatDisplayDate } from "@/lib/date-helpers"
 
 export default function ClientAccountsView() {
   const { getAllClientAccounts, addPaymentFromClient, removeTransaction } = useAccounts() // Use getAllClientAccounts instead of getClientsWithBalance
@@ -56,7 +57,7 @@ export default function ClientAccountsView() {
           const currentYear = now.getFullYear()
           const currentMonth = now.getMonth()
           filteredTransactions = filteredTransactions.filter((transaction) => {
-            const transactionDate = new Date(transaction.date)
+            const transactionDate = parseLocalDate(transaction.date)
             return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear
           })
         } else if (quickPeriod === "last-month") {
@@ -65,18 +66,18 @@ export default function ClientAccountsView() {
           const year = lastMonth.getFullYear()
           const month = lastMonth.getMonth()
           filteredTransactions = filteredTransactions.filter((transaction) => {
-            const transactionDate = new Date(transaction.date)
+            const transactionDate = parseLocalDate(transaction.date)
             return transactionDate.getMonth() === month && transactionDate.getFullYear() === year
           })
         } else if (quickPeriod === "current-year") {
           const currentYear = new Date().getFullYear()
           filteredTransactions = filteredTransactions.filter((transaction) => {
-            const transactionDate = new Date(transaction.date)
+            const transactionDate = parseLocalDate(transaction.date)
             return transactionDate.getFullYear() === currentYear
           })
         } else if (quickPeriod === "custom" && (dateRange?.from || dateRange?.to)) {
           filteredTransactions = filteredTransactions.filter((transaction) => {
-            const transactionDate = new Date(transaction.date)
+            const transactionDate = parseLocalDate(transaction.date)
             const fromDate = dateRange.from ? new Date(dateRange.from) : null
             const toDate = dateRange.to ? new Date(dateRange.to) : null
 
@@ -397,7 +398,7 @@ export default function ClientAccountsView() {
                             !paymentAmount ||
                             Number.parseFloat(paymentAmount) <= 0
                           }
-                          className="bg-green-600 hover:bg-green-700"
+                          className="bg-green-600 hover:bg-green-700 text-slate-50"
                         >
                           <DollarSign className="h-4 w-4 mr-1" />
                           Cobrar
@@ -413,11 +414,11 @@ export default function ClientAccountsView() {
                       <div key={transaction.id} className="flex justify-between items-center text-sm">
                         <div className="flex-1">
                           <span className="text-gray-600">
-                            {new Date(transaction.date).toLocaleDateString()} - {transaction.description}
+                            {formatDisplayDate(parseLocalDate(transaction.date))} - {transaction.description}
                           </span>
                           {transaction.dueDate && (
                             <span className="text-xs text-yellow-600 block">
-                              Vence: {new Date(transaction.dueDate).toLocaleDateString()}
+                              Vence: {formatDisplayDate(parseLocalDate(transaction.dueDate))}
                             </span>
                           )}
                         </div>

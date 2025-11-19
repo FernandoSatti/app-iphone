@@ -9,11 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Eye, EyeOff, Edit, Save, X, Trash2 } from "lucide-react"
+import { Search, Eye, EyeOff, Edit, Save, X, Trash2, Download } from 'lucide-react'
 import { useInventory, type InventoryItem } from "@/components/inventory-context"
+import * as XLSX from 'xlsx'
+import { useProductCategories } from "@/components/product-categories-context"
 
 const CatalogView = () => {
-  const { inventory, updateInventoryItem, removeInventoryItem } = useInventory() // Added removeInventoryItem function
+  const { inventory, updateInventoryItem, removeInventoryItem } = useInventory()
+  const { getCategoryByName } = useProductCategories()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [showCostPrice, setShowCostPrice] = useState(true)
@@ -33,6 +36,52 @@ const CatalogView = () => {
     return matchesSearch && matchesStatus
   })
 
+  const handleExportToExcel = () => {
+    const exportData = filteredProducts.map((product) => {
+      const row: any = {
+        Modelo: product.model,
+        Almacenamiento: product.storage,
+        Color: product.color,
+        Estado: product.status,
+        Condición: product.condition,
+        Batería: `${product.battery}%`,
+        Proveedor: product.provider,
+        IMEI: product.imei,
+      }
+
+      if (showCostPrice) {
+        row['Precio Costo'] = product.costPrice
+      }
+
+      row['Precio Venta'] = product.salePrice
+      row['Fecha'] = product.dateAdded
+
+      return row
+    })
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock')
+
+    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([wbout], { type: 'application/octet-stream' })
+    
+    const today = new Date()
+    const day = String(today.getDate()).padStart(2, '0')
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const year = today.getFullYear()
+    const filename = `stock-${day}-${month}-${year}.xlsx`
+
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+
   const handleEditProduct = (product: InventoryItem) => {
     setEditingItem({ ...product })
     setIsEditModalOpen(true)
@@ -41,6 +90,7 @@ const CatalogView = () => {
   const handleSaveEdit = () => {
     if (editingItem) {
       updateInventoryItem(editingItem.id, {
+        imei: editingItem.imei,
         salePrice: editingItem.salePrice,
         costPrice: editingItem.costPrice,
         status: editingItem.status,
@@ -53,7 +103,6 @@ const CatalogView = () => {
   }
 
   const handleDeleteProduct = (product: InventoryItem) => {
-    // Added function to handle product deletion
     if (confirm(`¿Estás seguro de que quieres eliminar ${product.model} ${product.storage}?`)) {
       removeInventoryItem(product.id)
     }
@@ -102,7 +151,6 @@ const CatalogView = () => {
         </div>
       </div>
 
-      {/* Controles de búsqueda y filtros */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -128,7 +176,7 @@ const CatalogView = () => {
           <Button
             variant={showCostPrice ? "default" : "outline"}
             onClick={() => setShowCostPrice(!showCostPrice)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-black text-slate-50 hover:bg-gray-800 transition-colors"
           >
             {showCostPrice ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             {showCostPrice ? "Ocultar costos" : "Mostrar costos"}
@@ -136,7 +184,6 @@ const CatalogView = () => {
         </div>
       </div>
 
-      {/* Estadísticas rápidas */}
       <div className="grid md:grid-cols-3 gap-4">
         <Card className="bg-green-50 border-green-200">
           <CardHeader className="pb-2">
@@ -158,7 +205,6 @@ const CatalogView = () => {
         </Card>
       </div>
 
-      {/* Información para capturas */}
       {statusFilter === "Disponible" && !showCostPrice && (
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="pt-4">
@@ -170,10 +216,19 @@ const CatalogView = () => {
         </Card>
       )}
 
-      {/* Tabla de productos */}
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Productos</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Lista de Productos</CardTitle>
+            <Button
+              onClick={handleExportToExcel}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={filteredProducts.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exportar Excel
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {filteredProducts.length === 0 ? (
@@ -192,6 +247,7 @@ const CatalogView = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-900">
+                    <TableHead className="text-white font-semibold">Tipo</TableHead>
                     <TableHead className="text-white font-semibold">Modelo</TableHead>
                     <TableHead className="text-white font-semibold">Almacenamiento</TableHead>
                     <TableHead className="text-white font-semibold">Color</TableHead>
@@ -209,54 +265,64 @@ const CatalogView = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.model}</TableCell>
-                      <TableCell>{product.storage}</TableCell>
-                      <TableCell>{product.color}</TableCell>
-                      <TableCell>{getStatusBadge(product.status)}</TableCell>
-                      <TableCell>{getConditionBadge(product.condition)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <div
-                            className={`w-2 h-2 rounded-full mr-2 ${
-                              product.battery >= 80
-                                ? "bg-green-500"
-                                : product.battery >= 50
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500"
-                            }`}
-                          ></div>
-                          {product.battery}%
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{product.provider}</TableCell>
-                      <TableCell className="font-mono text-xs">{product.imei}</TableCell>
-                      {showCostPrice && <TableCell className="text-right font-medium">${product.costPrice}</TableCell>}
-                      <TableCell className="text-right font-medium text-green-600">${product.salePrice}</TableCell>
-                      <TableCell className="text-sm text-gray-500">{product.dateAdded}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleEditProduct(product)}
-                          >
-                            <Edit className="h-4 w-4 text-blue-500" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleDeleteProduct(product)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredProducts.map((product) => {
+                    const category = getCategoryByName(product.productType || "Celular");
+                    const fields = category?.fields || { model: true, storage: true, color: true, condition: true, battery: true, imei: true };
+                    
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="text-sm">{product.productType || "Celular"}</TableCell>
+                        <TableCell className="font-medium">{product.model}</TableCell>
+                        <TableCell>{fields.storage ? product.storage : "--"}</TableCell>
+                        <TableCell>{fields.color ? product.color : "--"}</TableCell>
+                        <TableCell>{getStatusBadge(product.status)}</TableCell>
+                        <TableCell>{fields.condition ? getConditionBadge(product.condition) : <span className="text-gray-400">--</span>}</TableCell>
+                        <TableCell>
+                          {fields.battery ? (
+                            <div className="flex items-center">
+                              <div
+                                className={`w-2 h-2 rounded-full mr-2 ${
+                                  product.battery >= 80
+                                    ? "bg-green-500"
+                                    : product.battery >= 50
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500"
+                                }`}
+                              ></div>
+                              {product.battery}%
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">--</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">{product.provider}</TableCell>
+                        <TableCell className="font-mono text-xs">{fields.imei ? product.imei : "--"}</TableCell>
+                        {showCostPrice && <TableCell className="text-right font-medium">${product.costPrice}</TableCell>}
+                        <TableCell className="text-right font-medium text-green-600">${product.salePrice}</TableCell>
+                        <TableCell className="text-sm text-gray-500">{product.dateAdded}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleEditProduct(product)}
+                            >
+                              <Edit className="h-4 w-4 text-blue-500" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleDeleteProduct(product)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -264,7 +330,6 @@ const CatalogView = () => {
         </CardContent>
       </Card>
 
-      {/* Modal de edición */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -279,7 +344,10 @@ const CatalogView = () => {
                 </div>
                 <div>
                   <Label>IMEI</Label>
-                  <Input value={editingItem.imei} disabled className="bg-gray-100" />
+                  <Input
+                    value={editingItem.imei}
+                    onChange={(e) => setEditingItem({ ...editingItem, imei: e.target.value })}
+                  />
                 </div>
               </div>
 

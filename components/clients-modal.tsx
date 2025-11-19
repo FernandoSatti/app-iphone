@@ -40,7 +40,7 @@ export function ClientsModal({ isOpen, onOpenChange }: ClientsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-slate-50">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold">Nuevo Cliente</DialogTitle>
         </DialogHeader>
@@ -71,7 +71,7 @@ export function ClientsModal({ isOpen, onOpenChange }: ClientsModalProps) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" className="bg-green-600 hover:bg-green-700">
+            <Button type="submit" className="bg-green-600 hover:bg-green-700 text-slate-50">
               Agregar Cliente
             </Button>
           </DialogFooter>

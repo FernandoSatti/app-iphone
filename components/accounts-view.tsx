@@ -9,17 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  PlusCircle,
-  DollarSign,
-  Calendar,
-  Search,
-  ChevronDown,
-  ChevronRight,
-  Filter,
-  Users,
-  Building2,
-} from "lucide-react"
+import { PlusCircle, DollarSign, Calendar, Search, ChevronDown, ChevronRight, Filter, Users, Building2 } from 'lucide-react'
 import { useAccounts } from "@/components/account-context"
 import { useClients } from "@/components/client-context"
 import { useProviders } from "@/components/provider-context"
@@ -251,7 +241,7 @@ const AccountsView = ({ dateRange }: AccountsViewProps) => {
                 setActiveTab(type)
                 setShowPaymentForm(!showPaymentForm)
               }}
-              className={isClients ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
+              className={isClients ? "bg-green-600 hover:bg-green-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}
             >
               <PlusCircle className="h-4 w-4 mr-2" />
               {isClients ? "Registrar Cobro" : "Registrar Pago"}
@@ -315,7 +305,7 @@ const AccountsView = ({ dateRange }: AccountsViewProps) => {
                 <div className="flex gap-2">
                   <Button
                     type="submit"
-                    className={isClients ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
+                    className={isClients ? "bg-green-600 hover:bg-green-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}
                   >
                     {isClients ? "Registrar Cobro" : "Registrar Pago"}
                   </Button>

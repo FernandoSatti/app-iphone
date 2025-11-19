@@ -1,28 +1,25 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Search, Trash2, User, Phone, Calendar } from 'lucide-react';
-import { useClients } from "@/components/client-context";
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Search, Trash2, User, Phone, Calendar } from "lucide-react"
+import { useClients } from "@/components/client-context"
+import { formatDisplayDate } from "@/lib/date-helpers"
 
 const ClientsView = () => {
-  const { clients, removeClient, searchClients } = useClients();
-  const [searchTerm, setSearchTerm] = useState("");
+  const { clients, removeClient, searchClients } = useClients()
+  const [searchTerm, setSearchTerm] = useState("")
 
-  const filteredClients = searchClients(searchTerm);
+  const filteredClients = searchClients(searchTerm)
 
   const handleDeleteClient = (clientId: string) => {
     if (confirm("¿Estás seguro de que quieres eliminar este cliente?")) {
-      removeClient(clientId);
+      removeClient(clientId)
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-AR');
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -58,9 +55,7 @@ const ClientsView = () => {
               <User className="h-4 w-4" />
               Total Clientes
             </CardTitle>
-            <div className="text-2xl font-bold text-blue-900">
-              {clients.length}
-            </div>
+            <div className="text-2xl font-bold text-blue-900">{clients.length}</div>
           </CardHeader>
         </Card>
         <Card className="bg-green-50 border-green-200">
@@ -69,9 +64,7 @@ const ClientsView = () => {
               <Phone className="h-4 w-4" />
               Contactos Activos
             </CardTitle>
-            <div className="text-2xl font-bold text-green-900">
-              {clients.length}
-            </div>
+            <div className="text-2xl font-bold text-green-900">{clients.length}</div>
           </CardHeader>
         </Card>
         <Card className="bg-purple-50 border-purple-200">
@@ -81,11 +74,13 @@ const ClientsView = () => {
               Registros Este Mes
             </CardTitle>
             <div className="text-2xl font-bold text-purple-900">
-              {clients.filter(c => {
-                const clientDate = new Date(c.dateAdded);
-                const now = new Date();
-                return clientDate.getMonth() === now.getMonth() && clientDate.getFullYear() === now.getFullYear();
-              }).length}
+              {
+                clients.filter((c) => {
+                  const clientDate = new Date(c.dateAdded)
+                  const now = new Date()
+                  return clientDate.getMonth() === now.getMonth() && clientDate.getFullYear() === now.getFullYear()
+                }).length
+              }
             </div>
           </CardHeader>
         </Card>
@@ -136,13 +131,11 @@ const ClientsView = () => {
                           </a>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {formatDate(client.dateAdded)}
-                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">{formatDisplayDate(client.dateAdded)}</TableCell>
                       <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8"
                           onClick={() => handleDeleteClient(client.id)}
                         >
@@ -158,7 +151,7 @@ const ClientsView = () => {
         </CardContent>
       </Card>
     </div>
-  );
-};
+  )
+}
 
-export default ClientsView;
+export default ClientsView

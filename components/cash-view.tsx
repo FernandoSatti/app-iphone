@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { PlusCircle, DollarSign, TrendingUp, TrendingDown, Trash2, Search, CalendarIcon } from "lucide-react"
+import { PlusCircle, DollarSign, TrendingUp, TrendingDown, Trash2, Search, CalendarIcon } from 'lucide-react'
 import { useCash, type CashTransaction } from "@/components/cash-context"
 import type { DateRange } from "react-day-picker"
 import { format } from "date-fns"
@@ -363,7 +363,7 @@ const CashView = () => {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => setShowAddForm(!showAddForm)} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={() => setShowAddForm(!showAddForm)} className="bg-green-600 hover:bg-green-700 text-slate-50">
             <PlusCircle className="h-4 w-4 mr-2" />
             Nuevo Movimiento
           </Button>
@@ -468,7 +468,7 @@ const CashView = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                <Button type="submit" className="bg-green-600 hover:bg-green-700 text-slate-50">
                   Agregar Movimiento
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>

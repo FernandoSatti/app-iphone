@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Trash2, X, Search, Check, Plus } from 'lucide-react'
+import { Trash2, Search, Check, Plus } from "lucide-react"
 import type { Sale } from "@/app/page"
 import { useInventory } from "@/components/inventory-context"
 import { useClients } from "@/components/client-context"
@@ -57,6 +57,8 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
   const [tradeInDetails, setTradeInDetails] = useState<TradeIn | null>(null)
   const [paymentType, setPaymentType] = useState<"cash" | "credit">("cash")
   const [showAddClientModal, setShowAddClientModal] = useState(false)
+  const [mobileTab, setMobileTab] = useState<"products" | "details">("products")
+  const [productSearchTerm, setProductSearchTerm] = useState("")
 
   useEffect(() => {
     if (isOpen && user) {
@@ -106,10 +108,10 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
 
     const cashReceived = totalSalePrice - tradeInValue
 
-    // Ingreso total (para calcular ganancia bruta) = precio de venta
     const totalIncome = totalSalePrice
 
     const totalProductCost = selectedProducts.reduce((sum, item) => sum + item.cost, 0)
+
     const grossProfit = totalIncome - totalProductCost
 
     const orderDescription = selectedProducts
@@ -132,14 +134,15 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
       totalCost: totalProductCost,
     }
 
+    // El valor del canje NO se registra en caja - solo entra al inventario
     if (paymentType === "cash") {
       addTransaction({
         type: "income",
         date: getCurrentLocalDate(),
         amount: cashReceived,
         paymentMethod: "cash",
-        category: "Ventas",
-        description: `Venta al contado - ${customer}: ${selectedProducts[0]?.name}${selectedProducts.length > 1 ? ` y ${selectedProducts.length - 1} más` : ""}${tradeInDetails ? ` (Canje recibido: $${tradeInValue} - Capital)` : ""}`,
+        category: "Cobranzas",
+        description: `Venta - ${customer}: ${selectedProducts[0]?.name}${selectedProducts.length > 1 ? ` y ${selectedProducts.length - 1} más` : ""}${tradeInDetails ? ` (con canje -$${tradeInValue})` : ""}`,
         relatedTo: "sale",
         relatedId: `sale_${Date.now()}`,
       })
@@ -154,7 +157,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
         customer,
         `sale_${Date.now()}`,
         cashReceived,
-        `Venta: ${orderDescription.split("\n")[0]}...${tradeInDetails ? ` (Canje recibido: $${tradeInValue} - Capital)` : ""}`,
+        `Venta: ${orderDescription.split("\n")[0]}...`,
         undefined,
       )
     }
@@ -163,6 +166,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
     const soldItemIds = selectedProducts.map((item) => item.id)
     markItemsAsSold(soldItemIds)
 
+    // Esto es capital que entra al stock, NO es un ingreso de caja
     if (tradeInDetails) {
       addInventoryItem({
         model: tradeInDetails.model,
@@ -175,6 +179,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
         condition: "Usado",
         provider: "Plan Canje",
         status: "Disponible",
+        productType: "Celular",
       })
     }
 
@@ -192,6 +197,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
     setShowClientSearch(false)
     setClientSearchTerm("")
     setShowAddClientModal(false)
+    setProductSearchTerm("")
   }
 
   const totalCart = selectedProducts.reduce((sum, item) => sum + item.price, 0)
@@ -199,45 +205,109 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
 
   const filteredClients = searchClients(clientSearchTerm)
 
+  const filteredInventory = availableInventory.filter((product) => {
+    const searchLower = productSearchTerm.toLowerCase()
+    return (
+      product.model.toLowerCase().includes(searchLower) ||
+      product.storage.toLowerCase().includes(searchLower) ||
+      product.color.toLowerCase().includes(searchLower) ||
+      product.imei.toLowerCase().includes(searchLower)
+    )
+  })
+
   const isProductSelected = (productId: string) => {
     return selectedProducts.some((p) => p.id === productId)
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-6xl p-0 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 font-extralight leading-3 text-sm mx-0 w-full h-min"
-        hideClose
-      >
-        <div className="flex flex-col h-full">
+      <DialogContent className="max-w-6xl p-0 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 font-extralight leading-3 text-sm mx-0 w-full h-min md:max-h-[90vh] max-h-screen md:rounded-lg rounded-none">
+        <div className="flex flex-col h-full md:max-h-[90vh] max-h-screen">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b bg-white flex-row">
-            <DialogTitle className="text-2xl font-semibold">Nueva venta</DialogTitle>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="h-8 w-8">
-              <X className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center justify-between p-4 md:p-6 border-b bg-white flex-row shrink-0">
+            <DialogTitle className="text-xl md:text-2xl font-semibold">Nueva venta</DialogTitle>
+          </div>
+
+          <div className="md:hidden flex border-b bg-gray-100 shrink-0">
+            <button
+              onClick={() => setMobileTab("products")}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                mobileTab === "products"
+                  ? "bg-white text-gray-900 border-b-2 border-blue-600"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Productos ({selectedProducts.length})
+            </button>
+            <button
+              onClick={() => setMobileTab("details")}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                mobileTab === "details"
+                  ? "bg-white text-gray-900 border-b-2 border-blue-600"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Detalles de Venta
+            </button>
           </div>
 
           {/* Main Content */}
-          <div className="flex flex-1">
+          <div className="flex flex-1 overflow-hidden md:flex-row flex-col">
             {/* Left Column: Product List */}
-            <div className="w-[350px] bg-gray-800 text-white flex flex-col">
-              <div className="p-4 border-b border-gray-700">
+            <div
+              className={`md:w-[350px] w-full bg-gray-800 text-white flex flex-col ${mobileTab === "details" ? "hidden md:flex" : "flex"}`}
+            >
+              <div className="p-3 md:p-4 border-b border-gray-700 shrink-0">
                 <Input
                   placeholder="Buscar producto..."
-                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  value={productSearchTerm}
+                  onChange={(e) => setProductSearchTerm(e.target.value)}
+                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 h-10"
                 />
               </div>
               <div className="flex-1 overflow-y-auto px-0 leading-4 my-0">
-                {availableInventory.length === 0 ? (
-                  <div className="text-center py-20 text-gray-400">
-                    <p className="text-lg">No hay productos disponibles.</p>
-                    <p className="text-sm mt-2">Ve a "Inventario" para agregar productos.</p>
+                {filteredInventory.length === 0 ? (
+                  <div className="text-center py-12 md:py-20 text-gray-400 px-4">
+                    <p className="text-base md:text-lg">
+                      {productSearchTerm ? "No se encontraron productos" : "No hay productos disponibles."}
+                    </p>
+                    <p className="text-sm mt-2">
+                      {productSearchTerm ? "Intenta con otra búsqueda" : 'Ve a "Inventario" para agregar productos.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {availableInventory.map((product) => {
+                    {filteredInventory.map((product) => {
                       const selected = isProductSelected(product.id)
+                      const details: string[] = []
+
+                      // Add productType if it's not "Celular" (to differentiate accessories)
+                      if (
+                        product.productType &&
+                        product.productType !== "Celular" &&
+                        product.productType !== "N/A" &&
+                        product.productType !== "--"
+                      ) {
+                        details.push(product.productType)
+                      }
+
+                      // Add storage if available and not N/A
+                      if (product.storage && product.storage !== "N/A" && product.storage !== "--") {
+                        details.push(product.storage)
+                      }
+
+                      // Add color if available and not N/A
+                      if (product.color && product.color !== "N/A" && product.color !== "--") {
+                        details.push(product.color)
+                      }
+
+                      // Add battery if available and not N/A
+                      if (product.battery && String(product.battery) !== "N/A" && String(product.battery) !== "--") {
+                        details.push(`${product.battery}%`)
+                      }
+
+                      const detailsText = details.length > 0 ? details.join(" • ") : null
+
                       return (
                         <div
                           key={product.id}
@@ -249,18 +319,16 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                               cost: product.costPrice,
                             })
                           }
-                          className={`flex justify-between items-center p-3 cursor-pointer transition-colors border-b border-gray-700 ${
+                          className={`flex justify-between items-center p-3 md:p-3 cursor-pointer transition-colors border-b border-gray-700 ${
                             selected ? "bg-green-700 hover:bg-green-600" : "hover:bg-gray-700"
                           }`}
                         >
                           <div className="flex-1">
-                            <div className="font-medium text-white text-sm flex items-center gap-2">
+                            <div className="font-medium text-white text-sm md:text-sm flex items-center gap-2">
                               {selected && <Check className="h-4 w-4 text-green-300" />}
-                              {product.model.replace("iPhone ", "")} {product.storage}
+                              {product.model.replace("iPhone ", "").replace("iphone ", "")}
                             </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                              {product.color} • {product.battery}%
-                            </div>
+                            {detailsText && <div className="text-xs text-gray-400 mt-1">{detailsText}</div>}
                           </div>
                           <span className="font-bold text-white text-base">${product.salePrice}</span>
                         </div>
@@ -272,15 +340,17 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
             </div>
 
             {/* Right Column: Sale Details */}
-            <div className="flex-1 bg-white p-6 flex px-1.5 py-1.5 flex-col items-stretch justify-center font-normal">
-              {/* Seller and Customer - Campo libre para cliente con lupita */}
-              <div className="space-y-6 mb-6">
+            <div
+              className={`flex-1 bg-white p-3 md:p-6 flex flex-col overflow-y-auto ${mobileTab === "products" ? "hidden md:flex" : "flex"}`}
+            >
+              {/* Seller and Customer */}
+              <div className="space-y-4 md:space-y-6 mb-4 md:mb-6">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium flex items-center">
                     <span className="mr-2">👤</span> Vendedor
                   </Label>
                   <Select onValueChange={setSeller} value={seller}>
-                    <SelectTrigger className="h-10 w-full leading-5">
+                    <SelectTrigger className="h-10 md:h-10 w-full leading-5">
                       <SelectValue placeholder="Seleccionar vendedor..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -326,7 +396,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                     </Button>
                   </div>
 
-                  {/* Buscador de clientes */}
+                  {/* Client Search */}
                   {showClientSearch && (
                     <div className="border rounded-lg p-3 bg-gray-50 mt-2">
                       <Input
@@ -374,19 +444,27 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
               </div>
 
               {/* Selected Products */}
-              <div className="flex-1 mb-6">
-                <h4 className="font-semibold mb-3 text-lg flex items-center">
+              <div className="flex-1 mb-4 md:mb-6">
+                <h4 className="font-semibold mb-3 text-base md:text-lg flex items-center">
                   <span className="mr-2">🛒</span> Productos Seleccionados ({selectedProducts.length})
                 </h4>
-                <div className="border rounded-lg text-left h-[200px] overflow-hidden">
+                <div className="border rounded-lg text-left md:h-[200px] h-[180px] overflow-hidden">
                   <div className="h-full overflow-auto">
                     <Table>
                       <TableHeader className="sticky top-0 z-10">
                         <TableRow className="bg-gray-900 hover:bg-gray-900">
-                          <TableHead className="text-white font-semibold h-10 w-[40%]">Producto</TableHead>
-                          <TableHead className="text-white font-semibold text-center h-10 w-[15%]">Precio</TableHead>
-                          <TableHead className="text-white font-semibold text-center h-10 w-[15%]">Costo</TableHead>
-                          <TableHead className="text-white font-semibold text-center h-10 w-[20%]">Ganancia</TableHead>
+                          <TableHead className="text-white font-semibold h-10 w-[40%] text-xs md:text-sm">
+                            Producto
+                          </TableHead>
+                          <TableHead className="text-white font-semibold text-center h-10 w-[15%] text-xs md:text-sm">
+                            Precio
+                          </TableHead>
+                          <TableHead className="text-white font-semibold text-center h-10 w-[15%] text-xs md:text-sm">
+                            Costo
+                          </TableHead>
+                          <TableHead className="text-white font-semibold text-center h-10 w-[20%] text-xs md:text-sm">
+                            Ganancia
+                          </TableHead>
                           <TableHead className="text-white font-semibold text-center h-10 w-[10%]"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -394,10 +472,14 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                         {selectedProducts.length > 0 ? (
                           selectedProducts.map((item) => (
                             <TableRow key={item.id} className="h-12">
-                              <TableCell className="font-medium py-2 w-[40%]">{item.name}</TableCell>
-                              <TableCell className="text-center py-2 w-[15%]">${item.price}</TableCell>
-                              <TableCell className="text-center py-2 text-red-600 w-[15%]">${item.cost}</TableCell>
-                              <TableCell className="text-center font-medium py-2 text-green-600 w-[20%]">
+                              <TableCell className="font-medium py-2 w-[40%] text-xs md:text-sm">{item.name}</TableCell>
+                              <TableCell className="text-center py-2 w-[15%] text-xs md:text-sm">
+                                ${item.price}
+                              </TableCell>
+                              <TableCell className="text-center py-2 text-red-600 w-[15%] text-xs md:text-sm">
+                                ${item.cost}
+                              </TableCell>
+                              <TableCell className="text-center font-medium py-2 text-green-600 w-[20%] text-xs md:text-sm">
                                 ${item.price - item.cost}
                               </TableCell>
                               <TableCell className="text-center py-2 w-[10%]">
@@ -414,11 +496,12 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-gray-500 py-16">
+                            <TableCell colSpan={5} className="text-center text-gray-500 py-12 md:py-16">
                               No hay productos seleccionados
                               <br />
                               <span className="text-xs">
-                                Haz clic en los productos de la izquierda para seleccionarlos
+                                Haz clic en los productos {window.innerWidth < 768 ? "arriba" : "de la izquierda"} para
+                                seleccionarlos
                               </span>
                             </TableCell>
                           </TableRow>
@@ -433,14 +516,14 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
               <div className="mb-4">
                 <Button
                   variant="outline"
-                  className="w-full h-10 bg-transparent"
+                  className="w-full h-10 bg-transparent text-sm"
                   onClick={() => setShowTradeIn(!showTradeIn)}
                 >
                   🔄 Plan Canje
                 </Button>
 
                 {tradeInDetails && (
-                  <div className="mt-3 p-3 border rounded-md bg-blue-50 text-sm">
+                  <div className="mt-3 p-3 border rounded-md bg-blue-50 text-xs md:text-sm">
                     <p>
                       <strong>Canje:</strong> {tradeInDetails.model} {tradeInDetails.gb}GB - Tomado a $
                       {tradeInDetails.takenValue}
@@ -450,26 +533,33 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
               </div>
 
               {/* Total */}
-              <div className="mb-6">
-                <div className="text-2xl font-bold">Total a recibir: ${finalTotal}</div>
+              <div className="mb-4 md:mb-6">
+                <div className="text-xl md:text-2xl font-bold">Total a recibir: ${finalTotal}</div>
                 {selectedProducts.length > 0 && (
-                  <div className="text-sm text-gray-600 mt-1">
+                  <div className="text-xs md:text-sm text-gray-600 mt-1">
                     Precio venta: ${totalCart} {tradeInDetails && `- Canje (capital): $${tradeInDetails.takenValue}`}
                   </div>
                 )}
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-3 px-0 mx-4">
+              <div className="space-y-3 px-0 md:mx-4">
                 <Button
-                  className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                  className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm"
                   onClick={handleAddSale}
                   disabled={selectedProducts.length === 0}
                 >
                   ✓ AGREGAR VENTA
                 </Button>
-                <Button variant="secondary" className="w-full h-10 bg-gray-500 hover:bg-gray-600 text-white">
-                  💰 APLICAR DESCUENTO
+                <Button
+                  variant="secondary"
+                  className="w-full h-10 bg-red-500 hover:bg-red-600 text-white text-sm"
+                  onClick={() => {
+                    resetModal()
+                    onOpenChange(false)
+                  }}
+                >
+                  ✕ CANCELAR VENTA
                 </Button>
               </div>
             </div>
@@ -478,9 +568,9 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
 
         {/* Trade-In Form Modal */}
         {showTradeIn && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-8 z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-              <h3 className="text-xl font-semibold mb-4">Plan Canje</h3>
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 md:p-8 z-50">
+            <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg md:text-xl font-semibold mb-4">Plan Canje</h3>
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
@@ -498,50 +588,50 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                 }}
                 className="space-y-4"
               >
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label>Modelo</Label>
-                    <Input name="model" placeholder="iPhone 13" required />
+                    <Input name="model" placeholder="iPhone 13" required className="h-10" />
                   </div>
                   <div>
                     <Label>GB</Label>
-                    <Input name="gb" placeholder="128" required />
+                    <Input name="gb" placeholder="128" required className="h-10" />
                   </div>
                   <div>
                     <Label>Color</Label>
-                    <Input name="color" placeholder="Negro" required />
+                    <Input name="color" placeholder="Negro" required className="h-10" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Batería (%)</Label>
-                    <Input name="battery" placeholder="85" type="number" required />
+                    <Input name="battery" placeholder="85" type="number" required className="h-10" />
                   </div>
                   <div>
                     <Label>IMEI</Label>
-                    <Input name="imei" placeholder="123456789012345" required />
+                    <Input name="imei" placeholder="123456789012345" required className="h-10" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Valor tomado</Label>
-                    <Input name="takenValue" placeholder="300" type="number" required />
+                    <Input name="takenValue" placeholder="300" type="number" required className="h-10" />
                   </div>
                   <div>
                     <Label>Valor reventa</Label>
-                    <Input name="resaleValue" placeholder="450" type="number" required />
+                    <Input name="resaleValue" placeholder="450" type="number" required className="h-10" />
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex-1 bg-transparent"
+                    className="flex-1 bg-transparent h-10"
                     onClick={() => setShowTradeIn(false)}
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-10">
                     Agregar Canje
                   </Button>
                 </div>
@@ -551,10 +641,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
         )}
       </DialogContent>
 
-      <ClientsModal 
-        isOpen={showAddClientModal} 
-        onOpenChange={setShowAddClientModal}
-      />
+      <ClientsModal isOpen={showAddClientModal} onOpenChange={setShowAddClientModal} />
     </Dialog>
   )
 }

@@ -53,7 +53,7 @@ export function ProvidersModal({ isOpen, onOpenChange }: ProvidersModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[80vw] max-h-[90vh] p-0 flex flex-col">
+      <DialogContent className="max-w-4xl w-[80vw] max-h-[90vh] p-0 flex flex-col bg-slate-50">
         <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
           <DialogTitle className="text-2xl font-semibold">Nuevo Proveedor</DialogTitle>
         </DialogHeader>
@@ -97,7 +97,7 @@ export function ProvidersModal({ isOpen, onOpenChange }: ProvidersModalProps) {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                  <Button type="submit" className="bg-green-600 hover:bg-green-700 text-slate-50">
                     Agregar Proveedor
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setFormData({ name: "", phone: "", email: "" })}>
