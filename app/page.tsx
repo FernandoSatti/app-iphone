@@ -2,22 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import Link from "next/link"
-import {
-  ChevronDown,
-  ChevronRight,
-  CircleUser,
-  Home,
-  LogOut,
-  Package,
-  PlusCircle,
-  Trash2,
-  Users,
-  Wallet,
-  CalendarIcon,
-  BookOpen,
-  DollarSign,
-  Building2,
-} from "lucide-react"
+import { ChevronDown, ChevronRight, CircleUser, Home, LogOut, Package, PlusCircle, Trash2, Users, Wallet, CalendarIcon, BookOpen, DollarSign, Building2, Menu, Settings } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -45,7 +30,10 @@ import PendingOrdersView from "@/components/pending-orders-view"
 import { useAuth } from "@/components/auth-context"
 import { LoginScreen } from "@/components/login-screen"
 import ProfileView from "@/components/profile-view"
+import SettingsView from "@/components/settings-view"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { getCurrentISODate, formatDisplayDate, parseLocalDate } from "@/lib/date-helpers"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 export type Sale = {
   id: string
@@ -132,6 +120,7 @@ export default function DashboardPage() {
     | "provider-accounts"
     | "pending-orders"
     | "profile"
+    | "settings"
   >("dashboard")
 
   const [date, setDate] = useState<DateRange | undefined>({
@@ -143,6 +132,7 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
   const [quickPeriod, setQuickPeriod] = useState<string>("current-year")
   const [isLoading, setIsLoading] = useState(true)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const { getAccountsWithBalance, registerSaleStatusCallback } = useAccounts()
   const { getCashBalance, transactions } = useCash()
@@ -223,9 +213,7 @@ export default function DashboardPage() {
       const currentYear = now.getFullYear()
       const currentMonth = now.getMonth()
       filtered = filtered.filter((sale) => {
-        const saleDate = sale.date.includes("/")
-          ? new Date(sale.date.split("/").reverse().join("-"))
-          : new Date(sale.date)
+        const saleDate = parseLocalDate(sale.date)
         return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear
       })
     } else if (quickPeriod === "last-month") {
@@ -234,41 +222,31 @@ export default function DashboardPage() {
       const year = lastMonth.getFullYear()
       const month = lastMonth.getMonth()
       filtered = filtered.filter((sale) => {
-        const saleDate = sale.date.includes("/")
-          ? new Date(sale.date.split("/").reverse().join("-"))
-          : new Date(sale.date)
+        const saleDate = parseLocalDate(sale.date)
         return saleDate.getMonth() === month && saleDate.getFullYear() === year
       })
     } else if (quickPeriod === "current-year") {
       const currentYear = new Date().getFullYear()
       filtered = filtered.filter((sale) => {
-        const saleDate = sale.date.includes("/")
-          ? new Date(sale.date.split("/").reverse().join("-"))
-          : new Date(sale.date)
+        const saleDate = parseLocalDate(sale.date)
         return saleDate.getFullYear() === currentYear
       })
     } else if (quickPeriod === "last-year") {
       const lastYear = new Date().getFullYear() - 1
       filtered = filtered.filter((sale) => {
-        const saleDate = sale.date.includes("/")
-          ? new Date(sale.date.split("/").reverse().join("-"))
-          : new Date(sale.date)
+        const saleDate = parseLocalDate(sale.date)
         return saleDate.getFullYear() === lastYear
       })
     } else if (selectedMonth !== "all") {
       const monthIndex = Number.parseInt(selectedMonth)
       const year = Number.parseInt(selectedYear)
       filtered = filtered.filter((sale) => {
-        const saleDate = sale.date.includes("/")
-          ? new Date(sale.date.split("/").reverse().join("-"))
-          : new Date(sale.date)
+        const saleDate = parseLocalDate(sale.date)
         return saleDate.getMonth() === monthIndex && saleDate.getFullYear() === year
       })
     } else if (date?.from || date?.to) {
       filtered = filtered.filter((sale) => {
-        const saleDate = sale.date.includes("/")
-          ? new Date(sale.date.split("/").reverse().join("-"))
-          : new Date(sale.date)
+        const saleDate = parseLocalDate(sale.date)
         const fromDate = date.from ? new Date(date.from) : null
         const toDate = date.to ? new Date(date.to) : null
 
@@ -307,7 +285,7 @@ export default function DashboardPage() {
     const newSale: Sale = {
       ...newSaleData,
       id: `sale_${Date.now()}`,
-      date: getCurrentLocalDate(),
+      date: getCurrentISODate(),
       time: format(now, "HH:mm"),
     }
 
@@ -394,9 +372,9 @@ export default function DashboardPage() {
   const filteredTransactions = transactions.filter((transaction) => {
     if (!dateRange?.from && !dateRange?.to) return true
 
-    const transactionDate = new Date(transaction.date)
+    const transactionDate = parseLocalDate(transaction.date)
     const fromDate = dateRange.from ? new Date(dateRange.from) : null
-    const toDate = dateRange.to ? new Date(dateRange.to) : null
+    const toDate = dateRange.to ? new Date(date.to) : null
 
     if (fromDate && toDate) {
       return transactionDate >= fromDate && transactionDate <= toDate
@@ -414,9 +392,21 @@ export default function DashboardPage() {
 
   const netProfit = totalGrossProfit - businessExpenses
 
-  const totalRevenue = filteredSales
+  // Para cada venta acreditada, el ingreso es: total - valor_del_canje
+  const totalCashReceived = filteredSales
     .filter((sale) => sale.status === "Acreditado")
-    .reduce((sum, sale) => sum + sale.total, 0)
+    .reduce((sum, sale) => {
+      // El tradeIn contiene el valor del canje, se resta del total para obtener efectivo real
+      const tradeInValue = sale.tradeIn ? Number.parseFloat(sale.tradeIn.match(/\$([0-9.]+)/)?.[1] || "0") : 0
+      const cashOnly = sale.total - tradeInValue
+      return sum + Math.max(0, cashOnly)
+    }, 0)
+
+  const clientPayments = filteredTransactions
+    .filter((transaction) => transaction.type === "income" && transaction.category === "Cobranzas")
+    .reduce((sum, transaction) => sum + transaction.amount, 0)
+
+  const totalIncome = totalCashReceived + clientPayments
 
   const totalCosts = filteredSales.reduce((sum, sale) => sum + (sale.totalCost || 0), 0)
 
@@ -438,6 +428,224 @@ export default function DashboardPage() {
     )
   }
 
+  const NavigationMenu = ({ onItemClick }: { onItemClick?: () => void }) => (
+    <nav className="grid items-start px-4 text-sm font-medium">
+      <button
+        onClick={() => {
+          setCurrentView("dashboard")
+          onItemClick?.()
+        }}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+          currentView === "dashboard" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+        }`}
+      >
+        <Home className="h-4 w-4" />
+        Vista general
+      </button>
+
+      <button
+        onClick={() => {
+          setCurrentView("cash")
+          onItemClick?.()
+        }}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+          currentView === "cash" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+        }`}
+      >
+        <Wallet className="h-4 w-4" />
+        Caja
+      </button>
+
+      <div>
+        <button
+          onClick={() => setIsInventoryExpanded(!isInventoryExpanded)}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
+        >
+          <Package className="h-4 w-4" />
+          Inventario
+          {isInventoryExpanded ? (
+            <ChevronDown className="ml-auto h-4 w-4" />
+          ) : (
+            <ChevronRight className="ml-auto h-4 w-4" />
+          )}
+        </button>
+
+        {isInventoryExpanded && (
+          <div className="ml-6 mt-1 space-y-1">
+            <button
+              onClick={() => {
+                setIsInventoryModalOpen(true)
+                onItemClick?.()
+              }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
+            >
+              <PlusCircle className="h-3 w-3" />
+              Nuevo Producto
+            </button>
+            <button
+              onClick={() => {
+                setCurrentView("catalog")
+                onItemClick?.()
+              }}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                currentView === "catalog" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <BookOpen className="h-3 w-3" />
+              Stock
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <button
+          onClick={() => setIsClientsExpanded(!isClientsExpanded)}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
+        >
+          <Users className="h-4 w-4" />
+          Clientes
+          {isClientsExpanded ? (
+            <ChevronDown className="ml-auto h-4 w-4" />
+          ) : (
+            <ChevronRight className="ml-auto h-4 w-4" />
+          )}
+        </button>
+
+        {isClientsExpanded && (
+          <div className="ml-6 mt-1 space-y-1">
+            <button
+              onClick={() => {
+                setIsClientsModalOpen(true)
+                onItemClick?.()
+              }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
+            >
+              <PlusCircle className="h-3 w-3" />
+              Nuevo Cliente
+            </button>
+            <button
+              onClick={() => {
+                setCurrentView("clients")
+                onItemClick?.()
+              }}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                currentView === "clients" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Users className="h-3 w-3" />
+              Clientes
+            </button>
+            <button
+              onClick={() => {
+                setCurrentView("client-accounts")
+                onItemClick?.()
+              }}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                currentView === "client-accounts" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <DollarSign className="h-3 w-3" />
+              Saldo de clientes
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <button
+          onClick={() => setIsProvidersExpanded(!isProvidersExpanded)}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
+        >
+          <Building2 className="h-4 w-4" />
+          Proveedores
+          {isProvidersExpanded ? (
+            <ChevronDown className="ml-auto h-4 w-4" />
+          ) : (
+            <ChevronRight className="ml-auto h-4 w-4" />
+          )}
+        </button>
+
+        {isProvidersExpanded && (
+          <div className="ml-6 mt-1 space-y-1">
+            <button
+              onClick={() => {
+                setIsProvidersModalOpen(true)
+                onItemClick?.()
+              }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
+            >
+              <PlusCircle className="h-3 w-3" />
+              Nuevo Proveedor
+            </button>
+            <button
+              onClick={() => {
+                setCurrentView("providers")
+                onItemClick?.()
+              }}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                currentView === "providers" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Building2 className="h-3 w-3" />
+              Proveedores
+            </button>
+            <button
+              onClick={() => {
+                setCurrentView("pending-orders")
+                onItemClick?.()
+              }}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                currentView === "pending-orders" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Package className="h-3 w-3" />
+              Pedidos Pendientes
+            </button>
+            <button
+              onClick={() => {
+                setCurrentView("provider-accounts")
+                onItemClick?.()
+              }}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                currentView === "provider-accounts" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <DollarSign className="h-3 w-3" />
+              Saldo de proveedores
+            </button>
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={() => {
+          setCurrentView("profile")
+          onItemClick?.()
+        }}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+          currentView === "profile" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+        }`}
+      >
+        <CircleUser className="h-4 w-4" />
+        Mi perfil
+      </button>
+
+      <button
+        onClick={() => {
+          setCurrentView("settings")
+          onItemClick?.()
+        }}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+          currentView === "settings" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+        }`}
+      >
+        <Settings className="h-4 w-4" />
+        Ajustes
+      </button>
+    </nav>
+  )
+
   return (
     <>
       <NewSaleModal isOpen={isNewSaleModalOpen} onOpenChange={setIsNewSaleModalOpen} onSaleAdd={handleAddNewSale} />
@@ -451,182 +659,13 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="flex-1 overflow-auto py-2">
-              <nav className="grid items-start px-4 text-sm font-medium">
-                <button
-                  onClick={() => setCurrentView("dashboard")}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-                    currentView === "dashboard" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  <Home className="h-4 w-4" />
-                  Vista general
-                </button>
-
-                <button
-                  onClick={() => setCurrentView("cash")}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-                    currentView === "cash" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  <Wallet className="h-4 w-4" />
-                  Caja
-                </button>
-
-                <div>
-                  <button
-                    onClick={() => setIsInventoryExpanded(!isInventoryExpanded)}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
-                  >
-                    <Package className="h-4 w-4" />
-                    Inventario
-                    {isInventoryExpanded ? (
-                      <ChevronDown className="ml-auto h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </button>
-
-                  {isInventoryExpanded && (
-                    <div className="ml-6 mt-1 space-y-1">
-                      <button
-                        onClick={() => setIsInventoryModalOpen(true)}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
-                      >
-                        <PlusCircle className="h-3 w-3" />
-                        Nuevo Producto
-                      </button>
-                      <button
-                        onClick={() => setCurrentView("catalog")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                          currentView === "catalog" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <BookOpen className="h-3 w-3" />
-                        Stock
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <button
-                    onClick={() => setIsClientsExpanded(!isClientsExpanded)}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
-                  >
-                    <Users className="h-4 w-4" />
-                    Clientes
-                    {isClientsExpanded ? (
-                      <ChevronDown className="ml-auto h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </button>
-
-                  {isClientsExpanded && (
-                    <div className="ml-6 mt-1 space-y-1">
-                      <button
-                        onClick={() => setIsClientsModalOpen(true)}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
-                      >
-                        <PlusCircle className="h-3 w-3" />
-                        Nuevo Cliente
-                      </button>
-                      <button
-                        onClick={() => setCurrentView("clients")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                          currentView === "clients" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <Users className="h-3 w-3" />
-                        Clientes
-                      </button>
-                      <button
-                        onClick={() => setCurrentView("client-accounts")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                          currentView === "client-accounts"
-                            ? "bg-gray-700 text-white"
-                            : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <DollarSign className="h-3 w-3" />
-                        Saldo de clientes
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <button
-                    onClick={() => setIsProvidersExpanded(!isProvidersExpanded)}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left"
-                  >
-                    <Building2 className="h-4 w-4" />
-                    Proveedores
-                    {isProvidersExpanded ? (
-                      <ChevronDown className="ml-auto h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </button>
-
-                  {isProvidersExpanded && (
-                    <div className="ml-6 mt-1 space-y-1">
-                      <button
-                        onClick={() => setIsProvidersModalOpen(true)}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
-                      >
-                        <PlusCircle className="h-3 w-3" />
-                        Nuevo Proveedor
-                      </button>
-                      <button
-                        onClick={() => setCurrentView("providers")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                          currentView === "providers" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <Building2 className="h-3 w-3" />
-                        Proveedores
-                      </button>
-                      <button
-                        onClick={() => setCurrentView("pending-orders")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                          currentView === "pending-orders" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <Package className="h-3 w-3" />
-                        Pedidos Pendientes
-                      </button>
-                      <button
-                        onClick={() => setCurrentView("provider-accounts")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                          currentView === "provider-accounts"
-                            ? "bg-gray-700 text-white"
-                            : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <DollarSign className="h-3 w-3" />
-                        Saldo de proveedores
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setCurrentView("profile")}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-                    currentView === "profile" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  <CircleUser className="h-4 w-4" />
-                  Mi perfil
-                </button>
-              </nav>
+              <NavigationMenu />
             </div>
-            <div className="mt-auto p-4">
+            <div className="border-t border-gray-700 p-4">
               <Button
                 variant="ghost"
                 className="w-full justify-start text-gray-400 hover:bg-gray-700 hover:text-white"
-                onClick={logout}
+                onClick={() => logout()}
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar sesión
@@ -634,25 +673,56 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
         <div className="flex flex-col bg-gray-50/50">
-          <header className="flex h-14 lg:h-[60px] items-center gap-4 border-b bg-white px-6">
+          <header className="flex h-14 lg:h-[60px] items-center gap-4 border-b bg-white px-4 lg:px-6">
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="lg:hidden">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Abrir menú</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[280px] p-0 bg-gray-800 text-white border-gray-700">
+                <div className="flex h-full max-h-screen flex-col gap-2">
+                  <div className="flex h-[60px] items-center border-b border-gray-700 px-6">
+                    <Link href="#" className="flex items-center gap-2 font-semibold text-lg">
+                      <Wallet className="h-6 w-6" />
+                      <span>Ipro</span>
+                    </Link>
+                  </div>
+                  <div className="flex-1 overflow-auto py-2">
+                    <NavigationMenu onItemClick={() => setIsMobileMenuOpen(false)} />
+                  </div>
+                  <div className="border-t border-gray-700 p-4">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-gray-400 hover:bg-gray-700 hover:text-white"
+                      onClick={() => {
+                        logout()
+                        setIsMobileMenuOpen(false)
+                      }}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Cerrar sesión
+                    </Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+
             <div className="flex-1">
               {currentView === "dashboard" && (
                 <div className="flex items-center gap-4">
                   {quickPeriod === "current-month" && (
                     <p className="text-sm text-blue-600">
-                      Mostrando datos de este mes (
-                      {new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" })})
+                      Mostrando datos de este mes ({format(new Date(), "MMMM yyyy")})
                     </p>
                   )}
                   {quickPeriod === "last-month" && (
                     <p className="text-sm text-blue-600">
                       Mostrando datos del mes anterior (
-                      {new Date(new Date().getFullYear(), new Date().getMonth() - 1).toLocaleDateString("es-AR", {
-                        month: "long",
-                        year: "numeric",
-                      })}
-                      )
+                      {format(new Date(new Date().getFullYear(), new Date().getMonth() - 1), "MMMM yyyy")})
                     </p>
                   )}
                   {quickPeriod === "current-year" && (
@@ -670,14 +740,15 @@ export default function DashboardPage() {
                   )}
                   {quickPeriod === "custom" && selectedMonth === "all" && date?.from && (
                     <p className="text-sm text-blue-600">
-                      Mostrando datos del {format(date.from, "dd/MM/yyyy")}
-                      {date.to && ` al ${format(date.to, "dd/MM/yyyy")}`}
+                      Mostrando datos del {formatDisplayDate(date.from)}
+                      {date.to && ` al ${formatDisplayDate(date.to)}`}
                     </p>
                   )}
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-4">
+
+            <div className="flex items-center gap-2 lg:gap-4 overflow-x-auto">
               <Select
                 value={quickPeriod}
                 onValueChange={(value) => {
@@ -687,7 +758,7 @@ export default function DashboardPage() {
                   }
                 }}
               >
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[120px] lg:w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -702,7 +773,7 @@ export default function DashboardPage() {
               {quickPeriod === "custom" && (
                 <>
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="w-[100px]">
+                    <SelectTrigger className="w-[80px] lg:w-[100px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -715,7 +786,7 @@ export default function DashboardPage() {
                   </Select>
 
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-[120px] lg:w-[140px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -729,7 +800,11 @@ export default function DashboardPage() {
 
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button id="date" variant={"outline"} className="w-[260px] justify-start text-left font-normal">
+                      <Button
+                        id="date"
+                        variant={"outline"}
+                        className="w-[200px] lg:w-[260px] justify-start text-left font-normal"
+                      >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {selectedMonth === "all" && date?.from ? (
                           date.to ? (
@@ -740,7 +815,10 @@ export default function DashboardPage() {
                             format(date.from, "dd/MM/yy")
                           )
                         ) : (
-                          <span>Rango personalizado</span>
+                          <>
+                            <span className="hidden lg:inline">Rango personalizado</span>
+                            <span className="lg:hidden">Rango</span>
+                          </>
                         )}
                       </Button>
                     </PopoverTrigger>
@@ -774,9 +852,11 @@ export default function DashboardPage() {
                     <CardHeader className="pb-2">
                       <CardDescription className="text-green-700">Ingresos</CardDescription>
                       <CardTitle className="text-4xl font-bold text-green-900">
-                        US${totalRevenue.toLocaleString()}
+                        US${totalIncome.toLocaleString()}
                       </CardTitle>
-                      <CardDescription className="text-xs text-green-600">Solo ventas acreditadas</CardDescription>
+                      <CardDescription className="text-xs text-green-600">
+                        Efectivo recibido (ventas + cobranzas)
+                      </CardDescription>
                     </CardHeader>
                   </Card>
                   <Card className="bg-red-50 border-red-200 col-span-1">
@@ -798,12 +878,10 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <span
-                          className={`text-4xl font-bold ${getCashBalance() >= 0 ? "text-indigo-900" : "text-red-900"}`}
-                        >
-                          ${getCashBalance().toLocaleString()}
+                        <span className={`text-4xl font-bold ${netProfit >= 0 ? "text-fuchsia-900" : "text-red-900"}`}>
+                          ${netProfit.toLocaleString()}
                         </span>
-                        <span className="text-xs text-indigo-600">Efectivo disponible</span>
+                        <span className="text-xs text-fuchsia-600">Ganancia bruta - Gastos operativos</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -813,8 +891,8 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <span className="text-4xl font-bold text-rose-900">${netProfit.toLocaleString()}</span>
-                        <span className="text-xs text-rose-600">Ganancia bruta - Gastos operativos</span>
+                        <span className="text-4xl font-bold text-rose-900">${totalGrossProfit.toLocaleString()}</span>
+                        <span className="text-xs text-rose-600">Ventas totales - Costos del producto vendido</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -889,7 +967,7 @@ export default function DashboardPage() {
                             <TableRow key={sale.id}>
                               <TableCell>{getStatusBadge(sale.status, sale.id)}</TableCell>
                               <TableCell>
-                                {sale.date.includes("/") ? sale.date : format(new Date(sale.date), "dd/MM/yyyy")}
+                                {formatDisplayDate(sale.date)}
                                 <br />
                                 <span className="text-xs text-gray-500">{sale.time}</span>
                               </TableCell>
@@ -928,6 +1006,7 @@ export default function DashboardPage() {
             {currentView === "clients" && <ClientsView />}
             {currentView === "providers" && <ProvidersView />}
             {currentView === "profile" && <ProfileView />}
+            {currentView === "settings" && <SettingsView />}
           </main>
         </div>
       </div>
