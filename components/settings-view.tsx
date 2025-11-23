@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { GripVertical } from "lucide-react"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -18,18 +19,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { useAuth } from "@/components/auth-context"
-import { Download, Upload, Trash2, Plus, Edit, ChevronRight } from 'lucide-react'
+import { Download, Upload, Trash2, Plus, Edit, ChevronRight } from "lucide-react"
 import { exportBackup, importBackup } from "@/lib/backup-restore"
 import { useProductCategories, type ProductCategoryFields } from "@/components/product-categories-context"
 import { useProductAttributes, type AttributeType } from "@/components/product-attributes-context"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 const validUsers: { [key: string]: { password: string; name: string } } = {
   vale: { password: "ipro1234", name: "Vale" },
@@ -50,13 +45,17 @@ export default function SettingsView() {
   const supabase = createBrowserClient()
 
   const { categories, addCategory, updateCategory, deleteCategory } = useProductCategories()
-  const { attributes, getAttributesByType, addAttribute, deleteAttribute } = useProductAttributes()
-  
+  const { attributes, getAttributesByType, addAttribute, deleteAttribute, reorderAttributes } = useProductAttributes()
+
   const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false)
   const [isSubcategoriesExpanded, setIsSubcategoriesExpanded] = useState(false)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; fields: ProductCategoryFields } | null>(null)
+  const [editingCategory, setEditingCategory] = useState<{
+    id: string
+    name: string
+    fields: ProductCategoryFields
+  } | null>(null)
   const [categoryName, setCategoryName] = useState("")
   const [categoryFields, setCategoryFields] = useState<ProductCategoryFields>({
     model: true,
@@ -66,8 +65,9 @@ export default function SettingsView() {
     battery: true,
     imei: true,
   })
-  const [selectedAttributeType, setSelectedAttributeType] = useState<AttributeType>('color')
-  const [newAttributeValue, setNewAttributeValue] = useState('')
+  const [selectedAttributeType, setSelectedAttributeType] = useState<AttributeType>("color")
+  const [newAttributeValue, setNewAttributeValue] = useState("")
+  const [draggedItem, setDraggedItem] = useState<{ type: AttributeType; index: number } | null>(null)
 
   const handleResetClick = () => {
     setIsResetDialogOpen(true)
@@ -183,7 +183,7 @@ export default function SettingsView() {
     setIsCategoryModalOpen(true)
   }
 
-  const handleEditCategory = (category: typeof categories[0]) => {
+  const handleEditCategory = (category: (typeof categories)[0]) => {
     setEditingCategory(category)
     setCategoryName(category.name)
     setCategoryFields(category.fields)
@@ -215,20 +215,20 @@ export default function SettingsView() {
 
   const handleAddAttribute = (type: AttributeType) => {
     setSelectedAttributeType(type)
-    setNewAttributeValue('')
+    setNewAttributeValue("")
     setIsAttributeModalOpen(true)
   }
 
   const handleSaveAttribute = async () => {
     if (!newAttributeValue.trim()) {
-      alert('Por favor ingresa un valor')
+      alert("Por favor ingresa un valor")
       return
     }
     try {
       await addAttribute(selectedAttributeType, newAttributeValue.trim())
       setIsAttributeModalOpen(false)
     } catch (error) {
-      alert('Error al agregar atributo. Puede que ya exista.')
+      alert("Error al agregar atributo. Puede que ya exista.")
     }
   }
 
@@ -242,10 +242,41 @@ export default function SettingsView() {
     }
   }
 
+  const handleDragStart = (type: AttributeType, index: number) => {
+    setDraggedItem({ type, index })
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = async (type: AttributeType, dropIndex: number) => {
+    if (!draggedItem || draggedItem.type !== type) return
+
+    const items = getAttributesByType(type)
+    const dragIndex = draggedItem.index
+
+    if (dragIndex === dropIndex) {
+      setDraggedItem(null)
+      return
+    }
+
+    // Reorder the items
+    const reorderedItems = [...items]
+    const [removed] = reorderedItems.splice(dragIndex, 1)
+    reorderedItems.splice(dropIndex, 0, removed)
+
+    // Update the order in the database
+    const reorderedIds = reorderedItems.map((item) => item.id)
+    await reorderAttributes(type, reorderedIds)
+
+    setDraggedItem(null)
+  }
+
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   return (
-    <div className="grid gap-6">
+    <div className="space-y-6">
       {/* Backup/restore section */}
       <Card>
         <CardHeader>
@@ -259,7 +290,11 @@ export default function SettingsView() {
                 <h3 className="font-medium">Exportar Backup</h3>
                 <p className="text-sm text-gray-500">Descarga todas las tablas en formato Excel (.xlsx)</p>
               </div>
-              <Button onClick={handleExportBackup} disabled={isExporting} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button
+                onClick={handleExportBackup}
+                disabled={isExporting}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 <Download className="mr-2 h-4 w-4" />
                 {isExporting ? "Exportando..." : "Exportar"}
               </Button>
@@ -317,7 +352,7 @@ export default function SettingsView() {
               className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
-                <ChevronRight className={`h-5 w-5 transition-transform ${isCategoriesExpanded ? 'rotate-90' : ''}`} />
+                <ChevronRight className={`h-5 w-5 transition-transform ${isCategoriesExpanded ? "rotate-90" : ""}`} />
                 <div className="text-left">
                   <h3 className="font-medium">Categorías de Productos</h3>
                   <p className="text-sm text-gray-500">Gestiona los tipos de productos y sus campos configurables</p>
@@ -327,7 +362,10 @@ export default function SettingsView() {
 
             {isCategoriesExpanded && (
               <div className="mt-4 space-y-3 pl-8">
-                <Button onClick={handleAddCategory} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto">
+                <Button
+                  onClick={handleAddCategory}
+                  className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Nueva Categoría
                 </Button>
@@ -337,7 +375,11 @@ export default function SettingsView() {
                       <div className="flex-1">
                         <h4 className="font-medium">{category.name}</h4>
                         <p className="text-sm text-gray-500">
-                          Campos activos: {Object.entries(category.fields).filter(([_, active]) => active).map(([field]) => field).join(", ")}
+                          Campos activos:{" "}
+                          {Object.entries(category.fields)
+                            .filter(([_, active]) => active)
+                            .map(([field]) => field)
+                            .join(", ")}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -362,7 +404,9 @@ export default function SettingsView() {
               className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
-                <ChevronRight className={`h-5 w-5 transition-transform ${isSubcategoriesExpanded ? 'rotate-90' : ''}`} />
+                <ChevronRight
+                  className={`h-5 w-5 transition-transform ${isSubcategoriesExpanded ? "rotate-90" : ""}`}
+                />
                 <div className="text-left">
                   <h3 className="font-medium">Subcategorías de Productos</h3>
                   <p className="text-sm text-gray-500">Gestiona colores, almacenamientos y estados disponibles</p>
@@ -378,7 +422,7 @@ export default function SettingsView() {
                     <h4 className="font-medium">Colores</h4>
                     <Button
                       size="sm"
-                      onClick={() => handleAddAttribute('color')}
+                      onClick={() => handleAddAttribute("color")}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
                       <Plus className="mr-1 h-3 w-3" />
@@ -386,8 +430,16 @@ export default function SettingsView() {
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {getAttributesByType('color').map((attr) => (
-                      <div key={attr.id} className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded px-3 py-1 text-sm">
+                    {getAttributesByType("color").map((attr, index) => (
+                      <div
+                        key={attr.id}
+                        draggable
+                        onDragStart={() => handleDragStart("color", index)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop("color", index)}
+                        className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded px-3 py-1 text-sm cursor-move hover:bg-blue-100 transition-colors"
+                      >
+                        <GripVertical className="h-3 w-3 text-gray-400" />
                         <span>{attr.value}</span>
                         <button
                           onClick={() => handleDeleteAttribute(attr.id)}
@@ -406,7 +458,7 @@ export default function SettingsView() {
                     <h4 className="font-medium">Almacenamientos</h4>
                     <Button
                       size="sm"
-                      onClick={() => handleAddAttribute('storage')}
+                      onClick={() => handleAddAttribute("storage")}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
                       <Plus className="mr-1 h-3 w-3" />
@@ -414,8 +466,16 @@ export default function SettingsView() {
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {getAttributesByType('storage').map((attr) => (
-                      <div key={attr.id} className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded px-3 py-1 text-sm">
+                    {getAttributesByType("storage").map((attr, index) => (
+                      <div
+                        key={attr.id}
+                        draggable
+                        onDragStart={() => handleDragStart("storage", index)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop("storage", index)}
+                        className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded px-3 py-1 text-sm cursor-move hover:bg-purple-100 transition-colors"
+                      >
+                        <GripVertical className="h-3 w-3 text-gray-400" />
                         <span>{attr.value}</span>
                         <button
                           onClick={() => handleDeleteAttribute(attr.id)}
@@ -434,7 +494,7 @@ export default function SettingsView() {
                     <h4 className="font-medium">Estados</h4>
                     <Button
                       size="sm"
-                      onClick={() => handleAddAttribute('condition')}
+                      onClick={() => handleAddAttribute("condition")}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
                       <Plus className="mr-1 h-3 w-3" />
@@ -442,8 +502,16 @@ export default function SettingsView() {
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {getAttributesByType('condition').map((attr) => (
-                      <div key={attr.id} className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-3 py-1 text-sm">
+                    {getAttributesByType("condition").map((attr, index) => (
+                      <div
+                        key={attr.id}
+                        draggable
+                        onDragStart={() => handleDragStart("condition", index)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop("condition", index)}
+                        className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-3 py-1 text-sm cursor-move hover:bg-green-100 transition-colors"
+                      >
+                        <GripVertical className="h-3 w-3 text-gray-400" />
                         <span>{attr.value}</span>
                         <button
                           onClick={() => handleDeleteAttribute(attr.id)}
@@ -580,7 +648,7 @@ export default function SettingsView() {
                 placeholder="Ej: Accesorio, Cargador, Notebook"
               />
             </div>
-            
+
             <div>
               <Label>Campos disponibles</Label>
               <div className="space-y-2 mt-2">
@@ -589,17 +657,22 @@ export default function SettingsView() {
                     <Checkbox
                       id={field}
                       checked={active}
-                      onCheckedChange={(checked) =>
-                        setCategoryFields({ ...categoryFields, [field]: !!checked })
-                      }
+                      onCheckedChange={(checked) => setCategoryFields({ ...categoryFields, [field]: !!checked })}
                     />
                     <label htmlFor={field} className="text-sm capitalize cursor-pointer">
-                      {field === "model" ? "Modelo" :
-                       field === "storage" ? "Almacenamiento" :
-                       field === "color" ? "Color" :
-                       field === "condition" ? "Estado/Condición" :
-                       field === "battery" ? "Batería" :
-                       field === "imei" ? "IMEI" : field}
+                      {field === "model"
+                        ? "Modelo"
+                        : field === "storage"
+                          ? "Almacenamiento"
+                          : field === "color"
+                            ? "Color"
+                            : field === "condition"
+                              ? "Estado/Condición"
+                              : field === "battery"
+                                ? "Batería"
+                                : field === "imei"
+                                  ? "IMEI"
+                                  : field}
                     </label>
                   </div>
                 ))}
@@ -622,8 +695,12 @@ export default function SettingsView() {
         <DialogContent className="max-w-md bg-slate-50">
           <DialogHeader>
             <DialogTitle>
-              Agregar {selectedAttributeType === 'color' ? 'Color' : 
-                       selectedAttributeType === 'storage' ? 'Almacenamiento' : 'Estado'}
+              Agregar{" "}
+              {selectedAttributeType === "color"
+                ? "Color"
+                : selectedAttributeType === "storage"
+                  ? "Almacenamiento"
+                  : "Estado"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -634,9 +711,11 @@ export default function SettingsView() {
                 value={newAttributeValue}
                 onChange={(e) => setNewAttributeValue(e.target.value)}
                 placeholder={
-                  selectedAttributeType === 'color' ? 'Ej: Naranja' :
-                  selectedAttributeType === 'storage' ? 'Ej: 2TB' :
-                  'Ej: Como Nuevo'
+                  selectedAttributeType === "color"
+                    ? "Ej: Naranja"
+                    : selectedAttributeType === "storage"
+                      ? "Ej: 2TB"
+                      : "Ej: Como Nuevo"
                 }
               />
             </div>

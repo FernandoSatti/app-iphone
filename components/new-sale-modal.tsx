@@ -7,14 +7,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Trash2, Search, Check, Plus } from "lucide-react"
+import { Trash2, Search, Check, Plus, Smartphone, Package } from "lucide-react"
 import type { Sale } from "@/app/page"
 import { useInventory } from "@/components/inventory-context"
 import { useClients } from "@/components/client-context"
 import { useAccounts } from "@/components/account-context"
 import { useCash } from "@/components/cash-context"
 import { useAuth } from "@/components/auth-context"
-import { ClientsModal } from "@/components/clients-modal"
+import { AddClientModal } from "@/components/clients-modal"
+import { useProductCategories } from "@/components/product-categories-context"
 
 const sellers = ["Riki", "Vale"]
 
@@ -47,6 +48,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
   const { addSaleToAccount } = useAccounts()
   const { addTransaction } = useCash()
   const { user } = useAuth()
+  const { categories } = useProductCategories()
   const availableInventory = getAvailableItems()
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
   const [seller, setSeller] = useState<string>("")
@@ -59,6 +61,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
   const [showAddClientModal, setShowAddClientModal] = useState(false)
   const [mobileTab, setMobileTab] = useState<"products" | "details">("products")
   const [productSearchTerm, setProductSearchTerm] = useState("")
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("all")
 
   useEffect(() => {
     if (isOpen && user) {
@@ -198,6 +201,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
     setClientSearchTerm("")
     setShowAddClientModal(false)
     setProductSearchTerm("")
+    setSelectedCategoryFilter("all")
   }
 
   const totalCart = selectedProducts.reduce((sum, item) => sum + item.price, 0)
@@ -207,13 +211,51 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
 
   const filteredInventory = availableInventory.filter((product) => {
     const searchLower = productSearchTerm.toLowerCase()
-    return (
+    const matchesSearch =
       product.model.toLowerCase().includes(searchLower) ||
       product.storage.toLowerCase().includes(searchLower) ||
       product.color.toLowerCase().includes(searchLower) ||
       product.imei.toLowerCase().includes(searchLower)
-    )
+
+    // Filter by category
+    if (selectedCategoryFilter === "all") {
+      return matchesSearch
+    }
+
+    return matchesSearch && product.productType === selectedCategoryFilter
   })
+
+  const categoryCounts = availableInventory.reduce(
+    (acc, product) => {
+      const type = product.productType || "Celular"
+      acc[type] = (acc[type] || 0) + 1
+      return acc
+    },
+    {} as Record<string, number>,
+  )
+
+  const uniqueProductTypes = Array.from(new Set(availableInventory.map((p) => p.productType || "Celular"))).sort(
+    (a, b) => {
+      // Sort to put "Celular" first
+      if (a === "Celular") return -1
+      if (b === "Celular") return 1
+      return a.localeCompare(b)
+    },
+  )
+
+  const getCategoryStyle = (productType: string) => {
+    if (productType === "Celular") {
+      return {
+        color: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+        icon: Smartphone,
+      }
+    }
+    // Accessories get different colors
+    return {
+      color: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+      icon: Package,
+    }
+  }
 
   const isProductSelected = (productId: string) => {
     return selectedProducts.some((p) => p.id === productId)
@@ -265,14 +307,43 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                   className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 h-10"
                 />
               </div>
+
+              <div className="border-b border-gray-700 shrink-0 p-2">
+                <Select value={selectedCategoryFilter} onValueChange={setSelectedCategoryFilter}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos ({availableInventory.length})</SelectItem>
+                    {uniqueProductTypes.map((type) => {
+                      const count = availableInventory.filter((p) => p.productType === type).length
+                      const style = getCategoryStyle(type)
+                      const Icon = style.icon
+                      return (
+                        <SelectItem key={type} value={type}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {type} ({count})
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex-1 overflow-y-auto px-0 leading-4 my-0">
                 {filteredInventory.length === 0 ? (
                   <div className="text-center py-12 md:py-20 text-gray-400 px-4">
                     <p className="text-base md:text-lg">
-                      {productSearchTerm ? "No se encontraron productos" : "No hay productos disponibles."}
+                      {productSearchTerm || selectedCategoryFilter !== "all"
+                        ? "No se encontraron productos"
+                        : "No hay productos disponibles."}
                     </p>
                     <p className="text-sm mt-2">
-                      {productSearchTerm ? "Intenta con otra búsqueda" : 'Ve a "Inventario" para agregar productos.'}
+                      {productSearchTerm || selectedCategoryFilter !== "all"
+                        ? "Intenta con otra búsqueda o filtro"
+                        : 'Ve a "Inventario" para agregar productos.'}
                     </p>
                   </div>
                 ) : (
@@ -280,6 +351,9 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                     {filteredInventory.map((product) => {
                       const selected = isProductSelected(product.id)
                       const details: string[] = []
+                      const productType = product.productType || "Celular"
+                      const style = getCategoryStyle(productType)
+                      const Icon = style.icon
 
                       // Add productType if it's not "Celular" (to differentiate accessories)
                       if (
@@ -324,9 +398,15 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                           }`}
                         >
                           <div className="flex-1">
-                            <div className="font-medium text-white text-sm md:text-sm flex items-center gap-2">
+                            <div className="font-medium truncate flex items-center gap-2">
                               {selected && <Check className="h-4 w-4 text-green-300" />}
-                              {product.model.replace("iPhone ", "").replace("iphone ", "")}
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${style.color}`}
+                              >
+                                <Icon className="h-3 w-3" />
+                                {productType}
+                              </span>
+                              {product.model}
                             </div>
                             {detailsText && <div className="text-xs text-gray-400 mt-1">{detailsText}</div>}
                           </div>
@@ -641,7 +721,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
         )}
       </DialogContent>
 
-      <ClientsModal isOpen={showAddClientModal} onOpenChange={setShowAddClientModal} />
+      <AddClientModal isOpen={showAddClientModal} onOpenChange={setShowAddClientModal} />
     </Dialog>
   )
 }

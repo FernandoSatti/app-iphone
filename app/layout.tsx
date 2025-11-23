@@ -17,7 +17,6 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "iPhone Sales Dashboard",
   description: "Gestión de ventas de iPhones",
-    generator: 'v0.app'
 }
 
 export default function RootLayout({

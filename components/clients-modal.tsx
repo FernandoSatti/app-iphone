@@ -1,42 +1,38 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useClients } from "@/components/client-context";
+import type React from "react"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useClients } from "@/components/client-context"
 
 interface ClientsModalProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
+  isOpen: boolean
+  onOpenChange: (isOpen: boolean) => void
 }
 
 export function ClientsModal({ isOpen, onOpenChange }: ClientsModalProps) {
-  const { addClient } = useClients();
+  const { addClient } = useClients()
   const [formData, setFormData] = useState({
     name: "",
-    phone: ""
-  });
+    phone: "",
+  })
 
   const handleAddClient = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+    e.preventDefault()
+
     if (!formData.name || !formData.phone) {
-      alert("Por favor, complete todos los campos (Nombre y Teléfono)");
-      return;
+      alert("Por favor, complete todos los campos (Nombre y Teléfono)")
+      return
     }
 
-    addClient(formData);
-    setFormData({ name: "", phone: "" });
-    onOpenChange(false);
-  };
+    addClient(formData)
+    setFormData({ name: "", phone: "" })
+    onOpenChange(false)
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -44,14 +40,14 @@ export function ClientsModal({ isOpen, onOpenChange }: ClientsModalProps) {
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold">Nuevo Cliente</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleAddClient} className="space-y-4">
           <div>
             <Label htmlFor="name">Nombre *</Label>
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="Nombre completo"
               required
             />
@@ -61,12 +57,12 @@ export function ClientsModal({ isOpen, onOpenChange }: ClientsModalProps) {
             <Input
               id="phone"
               value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
               placeholder="+54 11 1234-5678"
               required
             />
           </div>
-          
+
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
@@ -78,5 +74,7 @@ export function ClientsModal({ isOpen, onOpenChange }: ClientsModalProps) {
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
+
+export { ClientsModal as AddClientModal }

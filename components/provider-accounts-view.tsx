@@ -18,7 +18,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Building2, Plus, CreditCard, ChevronDown, ChevronRight, Trash2, CalendarIcon, CheckCircle } from 'lucide-react'
+import {
+  Search,
+  Building2,
+  Plus,
+  CreditCard,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  CalendarIcon,
+  CheckCircle,
+} from "lucide-react"
 import { useAccounts } from "./account-context"
 import { useProviders } from "./provider-context"
 import { useCash } from "./cash-context"
@@ -184,25 +194,25 @@ export default function ProviderAccountsView() {
   }
 
   const handleDateInput = (value: string) => {
-    const cleaned = value.replace(/[^\d/]/g, '')
-    
+    const cleaned = value.replace(/[^\d/]/g, "")
+
     let formatted = cleaned
-    if (cleaned.length === 2 && !cleaned.includes('/')) {
-      formatted = cleaned + '/'
-    } else if (cleaned.length === 5 && cleaned.split('/').length === 2) {
-      formatted = cleaned + '/'
+    if (cleaned.length === 2 && !cleaned.includes("/")) {
+      formatted = cleaned + "/"
+    } else if (cleaned.length === 5 && cleaned.split("/").length === 2) {
+      formatted = cleaned + "/"
     }
-    
+
     if (formatted.length <= 10) {
       setDebtForm({ ...debtForm, dueDate: formatted })
     }
   }
 
   const convertToISODate = (ddmmyyyy: string): string => {
-    if (!ddmmyyyy || ddmmyyyy.length !== 10) return ''
-    const [day, month, year] = ddmmyyyy.split('/')
-    if (!day || !month || !year) return ''
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    if (!ddmmyyyy || ddmmyyyy.length !== 10) return ""
+    const [day, month, year] = ddmmyyyy.split("/")
+    if (!day || !month || !year) return ""
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
   }
 
   const handleAddDebt = () => {
@@ -212,7 +222,7 @@ export default function ProviderAccountsView() {
     const selectedProvider = providers.find((p) => p.id === debtForm.providerId)
     const providerName = selectedProvider?.name || "Proveedor Desconocido"
 
-    const isoDate = debtForm.dueDate ? convertToISODate(debtForm.dueDate) : ''
+    const isoDate = debtForm.dueDate ? convertToISODate(debtForm.dueDate) : ""
 
     addDebtToProvider(debtForm.providerId, providerName, amount, debtForm.description, isoDate || undefined)
 
@@ -361,9 +371,7 @@ export default function ProviderAccountsView() {
                   className="bg-white border-gray-300 text-gray-900"
                   maxLength={10}
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Formato: DD/MM/YYYY (ejemplo: 25/12/2025)
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Formato: DD/MM/YYYY (ejemplo: 25/12/2025)</p>
               </div>
               <Button
                 onClick={handleAddDebt}
@@ -496,11 +504,12 @@ export default function ProviderAccountsView() {
                   )}
                   <CardTitle className="text-gray-900">{provider.providerName}</CardTitle>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  {activeTab === "pending" && (
+                    <span className="text-lg font-bold text-orange-600">${provider.balance.toFixed(2)}</span>
+                  )}
                   {activeTab === "pending" ? (
-                    <Badge variant={provider.balance > 0 ? "destructive" : "secondary"}>
-                      ${provider.balance.toFixed(2)}
-                    </Badge>
+                    <Badge variant={provider.balance > 0 ? "destructive" : "secondary"}>Pendiente</Badge>
                   ) : (
                     <Badge variant="secondary" className="bg-green-100 text-green-800">
                       Pagado

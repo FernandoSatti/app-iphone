@@ -343,11 +343,12 @@ export default function ClientAccountsView() {
                   )}
                   <CardTitle className="text-gray-900">{client.clientName}</CardTitle>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  {activeTab === "pending" && (
+                    <span className="text-lg font-bold text-red-600">${client.balance.toFixed(2)}</span>
+                  )}
                   {activeTab === "pending" ? (
-                    <Badge variant={client.balance > 0 ? "destructive" : "secondary"}>
-                      ${client.balance.toFixed(2)}
-                    </Badge>
+                    <Badge variant={client.balance > 0 ? "destructive" : "secondary"}>Pendiente</Badge>
                   ) : (
                     <Badge variant="secondary" className="bg-green-100 text-green-800">
                       Pagado

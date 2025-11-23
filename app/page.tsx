@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import Link from "next/link"
 import {
   ChevronDown,
@@ -19,6 +19,8 @@ import {
   Building2,
   Menu,
   Settings,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -117,7 +119,7 @@ const getCurrentLocalDate = () => {
   return `${year}-${month}-${day}`
 }
 
-export default function DashboardPage() {
+export default function Dashboard() {
   const [sales, setSales] = useState<Sale[]>(initialSalesData)
   const [isNewSaleModalOpen, setIsNewSaleModalOpen] = useState(false)
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
@@ -151,6 +153,9 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [initialCategory, setInitialCategory] = useState<string | undefined>(undefined)
+  const [salesStatusFilter, setSalesStatusFilter] = useState<string>("all")
+  const [salesClientSearch, setSalesClientSearch] = useState("")
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   const { getAccountsWithBalance, registerSaleStatusCallback } = useAccounts()
   const { getCashBalance, transactions } = useCash()
@@ -282,7 +287,23 @@ export default function DashboardPage() {
     return filtered
   }
 
-  const filteredSales = getFilteredSales()
+  const periodStart = date?.from ? new Date(date.from) : getStartOfYear()
+  const periodEnd = date?.to ? new Date(date.to) : new Date()
+
+  const filteredSales = useMemo(() => {
+    return sales.filter((sale) => {
+      const saleDate = parseLocalDate(sale.date)
+      const isInDateRange = saleDate >= periodStart && saleDate <= periodEnd
+
+      // Status filter
+      const matchesStatus = salesStatusFilter === "all" || sale.status === salesStatusFilter
+
+      // Client search filter
+      const matchesClient = sale.client.toLowerCase().includes(salesClientSearch.toLowerCase())
+
+      return isInDateRange && matchesStatus && matchesClient
+    })
+  }, [sales, periodStart, periodEnd, salesStatusFilter, salesClientSearch])
 
   const handleDeleteSale = async (saleId: string) => {
     if (confirm("¿Estás seguro de que quieres eliminar esta venta?")) {
@@ -455,7 +476,8 @@ export default function DashboardPage() {
     )
   }
 
-  const NavigationMenu = ({ onItemClick }: { onItemClick?: () => void }) => (
+  // Update NavigationMenu to accept isCollapsed prop
+  const NavigationMenu = ({ onItemClick, isCollapsed }: { onItemClick?: () => void; isCollapsed?: boolean }) => (
     <nav className="grid items-start px-4 text-sm font-medium">
       <button
         onClick={() => {
@@ -464,10 +486,11 @@ export default function DashboardPage() {
         }}
         className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
           currentView === "dashboard" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-        }`}
+        } ${isCollapsed ? "justify-center" : ""}`}
+        title={isCollapsed ? "Vista general" : ""}
       >
         <Home className="h-4 w-4" />
-        Vista general
+        {!isCollapsed && "Vista general"}
       </button>
 
       <button
@@ -477,184 +500,240 @@ export default function DashboardPage() {
         }}
         className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
           currentView === "cash" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-        }`}
+        } ${isCollapsed ? "justify-center" : ""}`}
+        title={isCollapsed ? "Caja" : ""}
       >
         <Wallet className="h-4 w-4" />
-        Caja
+        {!isCollapsed && "Caja"}
       </button>
 
-      <div>
+      {!isCollapsed && (
+        <div>
+          <button
+            onClick={() => setIsInventoryExpanded(!isInventoryExpanded)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
+          >
+            <Package className="h-4 w-4" />
+            Inventario
+            {isInventoryExpanded ? (
+              <ChevronDown className="ml-auto h-4 w-4" />
+            ) : (
+              <ChevronRight className="ml-auto h-4 w-4" />
+            )}
+          </button>
+
+          {isInventoryExpanded && (
+            <div className="ml-6 mt-1 space-y-1">
+              <button
+                onClick={() => {
+                  setIsInventoryModalOpen(true)
+                  onItemClick?.()
+                }}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
+              >
+                <PlusCircle className="h-3 w-3" />
+                Nuevo Producto
+              </button>
+              <button
+                onClick={() => {
+                  setIsInventoryModalOpen(true)
+                  setInitialCategory("Accesorio")
+                  onItemClick?.()
+                }}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
+              >
+                <PlusCircle className="h-3 w-3" />
+                Nuevo Accesorio
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentView("catalog")
+                  onItemClick?.()
+                }}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                  currentView === "catalog" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <BookOpen className="h-3 w-3" />
+                Stock
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isCollapsed && (
         <button
-          onClick={() => setIsInventoryExpanded(!isInventoryExpanded)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
+          onClick={() => {
+            setCurrentView("catalog")
+            onItemClick?.()
+          }}
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all justify-center ${
+            currentView === "catalog" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+          }`}
+          title="Inventario"
         >
           <Package className="h-4 w-4" />
-          Inventario
-          {isInventoryExpanded ? (
-            <ChevronDown className="ml-auto h-4 w-4" />
-          ) : (
-            <ChevronRight className="ml-auto h-4 w-4" />
-          )}
         </button>
+      )}
 
-        {isInventoryExpanded && (
-          <div className="ml-6 mt-1 space-y-1">
-            <button
-              onClick={() => {
-                setIsInventoryModalOpen(true)
-                onItemClick?.()
-              }}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
-            >
-              <PlusCircle className="h-3 w-3" />
-              Nuevo Producto
-            </button>
-            <button
-              onClick={() => {
-                setIsInventoryModalOpen(true)
-                setInitialCategory("Accesorio")
-                onItemClick?.()
-              }}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
-            >
-              <PlusCircle className="h-3 w-3" />
-              Nuevo Accesorio
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView("catalog")
-                onItemClick?.()
-              }}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                currentView === "catalog" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <BookOpen className="h-3 w-3" />
-              Stock
-            </button>
-          </div>
-        )}
-      </div>
+      {!isCollapsed && (
+        <div>
+          <button
+            onClick={() => setIsClientsExpanded(!isClientsExpanded)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
+          >
+            <Users className="h-4 w-4" />
+            Clientes
+            {isClientsExpanded ? (
+              <ChevronDown className="ml-auto h-4 w-4" />
+            ) : (
+              <ChevronRight className="ml-auto h-4 w-4" />
+            )}
+          </button>
 
-      <div>
+          {isClientsExpanded && (
+            <div className="ml-6 mt-1 space-y-1">
+              <button
+                onClick={() => {
+                  setIsClientsModalOpen(true)
+                  onItemClick?.()
+                }}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
+              >
+                <PlusCircle className="h-3 w-3" />
+                Nuevo Cliente
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentView("clients")
+                  onItemClick?.()
+                }}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                  currentView === "clients" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Users className="h-3 w-3" />
+                Clientes
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentView("client-accounts")
+                  onItemClick?.()
+                }}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                  currentView === "client-accounts" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <DollarSign className="h-3 w-3" />
+                Saldo de clientes
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isCollapsed && (
         <button
-          onClick={() => setIsClientsExpanded(!isClientsExpanded)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
+          onClick={() => {
+            setCurrentView("clients")
+            onItemClick?.()
+          }}
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all justify-center ${
+            currentView === "clients" || currentView === "client-accounts"
+              ? "bg-gray-700 text-white"
+              : "text-gray-400 hover:text-white"
+          }`}
+          title="Clientes"
         >
           <Users className="h-4 w-4" />
-          Clientes
-          {isClientsExpanded ? (
-            <ChevronDown className="ml-auto h-4 w-4" />
-          ) : (
-            <ChevronRight className="ml-auto h-4 w-4" />
-          )}
         </button>
+      )}
 
-        {isClientsExpanded && (
-          <div className="ml-6 mt-1 space-y-1">
-            <button
-              onClick={() => {
-                setIsClientsModalOpen(true)
-                onItemClick?.()
-              }}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
-            >
-              <PlusCircle className="h-3 w-3" />
-              Nuevo Cliente
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView("clients")
-                onItemClick?.()
-              }}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                currentView === "clients" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <Users className="h-3 w-3" />
-              Clientes
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView("client-accounts")
-                onItemClick?.()
-              }}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                currentView === "client-accounts" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <DollarSign className="h-3 w-3" />
-              Saldo de clientes
-            </button>
-          </div>
-        )}
-      </div>
+      {!isCollapsed && (
+        <div>
+          <button
+            onClick={() => setIsProvidersExpanded(!isProvidersExpanded)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
+          >
+            <Building2 className="h-4 w-4" />
+            Proveedores
+            {isProvidersExpanded ? (
+              <ChevronDown className="ml-auto h-4 w-4" />
+            ) : (
+              <ChevronRight className="ml-auto h-4 w-4" />
+            )}
+          </button>
 
-      <div>
+          {isProvidersExpanded && (
+            <div className="ml-6 mt-1 space-y-1">
+              <button
+                onClick={() => {
+                  setIsProvidersModalOpen(true)
+                  onItemClick?.()
+                }}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
+              >
+                <PlusCircle className="h-3 w-3" />
+                Nuevo Proveedor
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentView("providers")
+                  onItemClick?.()
+                }}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                  currentView === "providers" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Building2 className="h-3 w-3" />
+                Proveedores
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentView("pending-orders")
+                  onItemClick?.()
+                }}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                  currentView === "pending-orders" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Package className="h-3 w-3" />
+                Pedidos Pendientes
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentView("provider-accounts")
+                  onItemClick?.()
+                }}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
+                  currentView === "provider-accounts" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <DollarSign className="h-3 w-3" />
+                Saldo de proveedores
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isCollapsed && (
         <button
-          onClick={() => setIsProvidersExpanded(!isProvidersExpanded)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white hover:bg-gray-700 w-full text-left"
+          onClick={() => {
+            setCurrentView("providers")
+            onItemClick?.()
+          }}
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all justify-center ${
+            currentView === "providers" || currentView === "pending-orders" || currentView === "provider-accounts"
+              ? "bg-gray-700 text-white"
+              : "text-gray-400 hover:text-white"
+          }`}
+          title="Proveedores"
         >
           <Building2 className="h-4 w-4" />
-          Proveedores
-          {isProvidersExpanded ? (
-            <ChevronDown className="ml-auto h-4 w-4" />
-          ) : (
-            <ChevronRight className="ml-auto h-4 w-4" />
-          )}
         </button>
-
-        {isProvidersExpanded && (
-          <div className="ml-6 mt-1 space-y-1">
-            <button
-              onClick={() => {
-                setIsProvidersModalOpen(true)
-                onItemClick?.()
-              }}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-400 transition-all hover:text-white w-full text-left text-sm"
-            >
-              <PlusCircle className="h-3 w-3" />
-              Nuevo Proveedor
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView("providers")
-                onItemClick?.()
-              }}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                currentView === "providers" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <Building2 className="h-3 w-3" />
-              Proveedores
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView("pending-orders")
-                onItemClick?.()
-              }}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                currentView === "pending-orders" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <Package className="h-3 w-3" />
-              Pedidos Pendientes
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView("provider-accounts")
-                onItemClick?.()
-              }}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all w-full text-left text-sm ${
-                currentView === "provider-accounts" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <DollarSign className="h-3 w-3" />
-              Saldo de proveedores
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       <button
         onClick={() => {
@@ -663,10 +742,11 @@ export default function DashboardPage() {
         }}
         className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
           currentView === "profile" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-        }`}
+        } ${isCollapsed ? "justify-center" : ""}`}
+        title={isCollapsed ? "Mi perfil" : ""}
       >
         <CircleUser className="h-4 w-4" />
-        Mi perfil
+        {!isCollapsed && "Mi perfil"}
       </button>
 
       <button
@@ -676,10 +756,11 @@ export default function DashboardPage() {
         }}
         className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
           currentView === "settings" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-        }`}
+        } ${isCollapsed ? "justify-center" : ""}`}
+        title={isCollapsed ? "Ajustes" : ""}
       >
         <Settings className="h-4 w-4" />
-        Ajustes
+        {!isCollapsed && "Ajustes"}
       </button>
     </nav>
   )
@@ -687,26 +768,39 @@ export default function DashboardPage() {
   return (
     <>
       <NewSaleModal isOpen={isNewSaleModalOpen} onOpenChange={setIsNewSaleModalOpen} onSaleAdd={handleAddNewSale} />
-      <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
+      <div
+        className={`grid min-h-screen w-full transition-all duration-300 ${isSidebarCollapsed ? "lg:grid-cols-[80px_1fr]" : "lg:grid-cols-[280px_1fr]"}`}
+      >
         <div className="hidden border-r bg-gray-800 text-white lg:block">
           <div className="flex h-full max-h-screen flex-col gap-2">
-            <div className="flex h-[60px] items-center border-b border-gray-700 px-6">
-              <Link href="#" className="flex items-center gap-2 font-semibold text-lg">
+            <div className="flex h-[60px] items-center justify-between border-b border-gray-700 px-6">
+              <Link
+                href="#"
+                className={`flex items-center gap-2 font-semibold text-lg transition-opacity ${isSidebarCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}
+              >
                 <Wallet className="h-6 w-6" />
                 <span>Ipro</span>
               </Link>
+              <button
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-all"
+                title={isSidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
+              >
+                {isSidebarCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+              </button>
             </div>
             <div className="flex-1 overflow-auto py-2">
-              <NavigationMenu />
+              <NavigationMenu isCollapsed={isSidebarCollapsed} />
             </div>
             <div className="border-t border-gray-700 p-4">
               <Button
                 variant="ghost"
-                className="w-full justify-start text-gray-400 hover:bg-gray-700 hover:text-white"
+                className={`w-full text-gray-400 hover:bg-gray-700 hover:text-white ${isSidebarCollapsed ? "justify-center px-2" : "justify-start"}`}
                 onClick={() => logout()}
+                title="Cerrar sesión"
               >
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar sesión
+                <LogOut className={`h-4 w-4 ${isSidebarCollapsed ? "" : "mr-2"}`} />
+                {!isSidebarCollapsed && "Cerrar sesión"}
               </Button>
             </div>
           </div>
@@ -992,6 +1086,28 @@ export default function DashboardPage() {
                     <CardTitle>Ventas en el período ({filteredSales.length})</CardTitle>
                   </CardHeader>
                   <CardContent>
+                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          placeholder="Buscar por cliente..."
+                          value={salesClientSearch}
+                          onChange={(e) => setSalesClientSearch(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                      <Select value={salesStatusFilter} onValueChange={setSalesStatusFilter}>
+                        <SelectTrigger className="w-full sm:w-[180px]">
+                          <SelectValue placeholder="Estado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos los estados</SelectItem>
+                          <SelectItem value="Pendiente">Pendiente</SelectItem>
+                          <SelectItem value="Acreditado">Acreditado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     {filteredSales.length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
                         {sales.length === 0 ? (
