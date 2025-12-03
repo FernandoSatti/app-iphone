@@ -69,6 +69,18 @@ export type Sale = {
   totalCost: number
 }
 
+export type InventoryItem = {
+  id: string
+  name: string
+  category: string
+  costPrice: number
+  sellingPrice: number
+  stock: number
+  status: "Disponible" | "Agotado" | "Bajo stock"
+  providerId?: string | null
+  providerName?: string
+}
+
 const initialSalesData: Sale[] = []
 
 const statuses: Sale["status"][] = ["Acreditado", "Pendiente", "Entregado"]
@@ -121,6 +133,7 @@ const getCurrentLocalDate = () => {
 
 export default function Dashboard() {
   const [sales, setSales] = useState<Sale[]>(initialSalesData)
+  const [inventory, setInventory] = useState<InventoryItem[]>([]) // Initialize inventory state
   const [isNewSaleModalOpen, setIsNewSaleModalOpen] = useState(false)
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false)
   const [isClientsModalOpen, setIsClientsModalOpen] = useState(false)
@@ -165,6 +178,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadSales()
+    loadInventory() // Load inventory when the component mounts
   }, [])
 
   const loadSales = async () => {
@@ -197,6 +211,67 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error("[v0] Error loading sales:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadInventory = async () => {
+    setIsLoading(true)
+    try {
+      const { data: inventoryData, error } = await supabase
+        .from("inventory")
+        .select(`
+          *,
+          provider_info:providers!inventory_provider_fkey(name)
+        `)
+        .order("model", { ascending: true })
+
+      if (error) {
+        // If foreign key doesn't exist, fall back to simple query and manual lookup
+        console.log("[v0] Foreign key not found, using manual provider lookup")
+        const { data: simpleData, error: simpleError } = await supabase
+          .from("inventory")
+          .select("*")
+          .order("model", { ascending: true })
+
+        if (simpleError) throw simpleError
+
+        // Load all providers to map IDs to names
+        const { data: providersData } = await supabase.from("providers").select("id, name")
+        const providersMap = new Map((providersData || []).map((p: any) => [p.id, p.name]))
+
+        const formattedInventory: InventoryItem[] = (simpleData || []).map((item) => ({
+          id: item.id,
+          name: item.model,
+          category: item.product_type || item.type,
+          costPrice: item.cost_price,
+          sellingPrice: item.sale_price,
+          stock: 1,
+          status: item.status as InventoryItem["status"],
+          providerId: item.provider,
+          providerName: providersMap.get(item.provider) || item.provider || "N/A",
+        }))
+        setInventory(formattedInventory)
+        return
+      }
+
+      if (inventoryData) {
+        const formattedInventory: InventoryItem[] = inventoryData.map((item: any) => ({
+          id: item.id,
+          name: item.model,
+          category: item.product_type || item.type,
+          costPrice: item.cost_price,
+          sellingPrice: item.sale_price,
+          stock: 1,
+          status: item.status as InventoryItem["status"],
+          providerId: item.provider,
+          providerName: item.provider_info?.name || item.provider || "N/A",
+        }))
+        setInventory(formattedInventory)
+      }
+    } catch (error) {
+      console.error("[v0] Error loading inventory:", error)
     } finally {
       setIsLoading(false)
     }
@@ -348,8 +423,10 @@ export default function Dashboard() {
 
       setSales([newSale, ...sales])
       setIsNewSaleModalOpen(false)
+      return { success: true, sale: newSale }
     } catch (error) {
       console.error("[v0] Error saving sale:", error)
+      throw error
     }
   }
 
@@ -460,6 +537,10 @@ export default function Dashboard() {
   const cashBalance = filteredTransactions.reduce((balance, transaction) => {
     return transaction.type === "income" ? balance + transaction.amount : balance - transaction.amount
   }, 0)
+
+  const physicalCapital = inventory
+    .filter((item) => item.status === "Disponible")
+    .reduce((sum, item) => sum + item.costPrice, 0)
 
   if (!isAuthenticated) {
     return <LoginScreen />
@@ -1056,7 +1137,21 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <CardDescription className="text-xs text-indigo-600 mt-1">
-                        Total ingresos - Total egresos (incluye capital)
+                        Total ingresos - Total egresos
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+
+                  <Card className="bg-yellow-50 border-yellow-200 max-w-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium text-yellow-800">Capital Físico</CardTitle>
+                      <div className="mt-2">
+                        <span className="text-3xl lg:text-4xl font-bold text-yellow-900">
+                          ${physicalCapital.toLocaleString()}
+                        </span>
+                      </div>
+                      <CardDescription className="text-xs text-yellow-600 mt-1">
+                        Suma de costos de productos disponibles en stock
                       </CardDescription>
                     </CardHeader>
                   </Card>

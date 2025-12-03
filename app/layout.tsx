@@ -15,7 +15,7 @@ import { ProductAttributesProvider } from "@/components/product-attributes-conte
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "iPhone Sales Dashboard",
+  title: "Ipro",
   description: "Gestión de ventas de iPhones",
 }
 
