@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Package, Plus, Trash2, Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { Search, Package, Plus, Trash2, Check, ChevronDown, ChevronUp } from "lucide-react"
 import { usePendingOrders } from "./pending-orders-context"
 import { useProviders } from "./provider-context"
 import { useInventory } from "./inventory-context"
@@ -32,17 +32,17 @@ export default function PendingOrdersView() {
   const { addDebtToProvider } = useAccounts()
   const { categories, getCategoryByName } = useProductCategories()
   const { getAttributesByType } = useProductAttributes()
-  
+
   const [searchTerm, setSearchTerm] = useState("")
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
   const [initialCategory, setInitialCategory] = useState<string | undefined>(undefined)
 
-  const storageOptions = getAttributesByType('storage').map(attr => attr.value)
-  const colorOptions = getAttributesByType('color').map(attr => attr.value)
-  const conditionOptions = getAttributesByType('condition').map(attr => attr.value)
+  const storageOptions = getAttributesByType("storage").map((attr) => attr.value)
+  const colorOptions = getAttributesByType("color").map((attr) => attr.value)
+  const conditionOptions = getAttributesByType("condition").map((attr) => attr.value)
 
-  const defaultCelularCategory = categories.find(cat => cat.name.toLowerCase() === 'celular')
+  const defaultCelularCategory = categories.find((cat) => cat.name.toLowerCase() === "celular")
 
   const [orderForm, setOrderForm] = useState({
     providerId: "",
@@ -67,13 +67,13 @@ export default function PendingOrdersView() {
 
   useEffect(() => {
     if (categories.length > 0 && orderForm.products.length > 0) {
-      const celularCategory = categories.find(cat => cat.name.toLowerCase() === 'celular')
+      const celularCategory = categories.find((cat) => cat.name.toLowerCase() === "celular")
       if (celularCategory && orderForm.products[0].productCategory === "") {
-        setOrderForm(prev => ({
+        setOrderForm((prev) => ({
           ...prev,
-          products: prev.products.map((p, idx) => 
-            idx === 0 && p.productCategory === "" ? { ...p, productCategory: celularCategory.name } : p
-          )
+          products: prev.products.map((p, idx) =>
+            idx === 0 && p.productCategory === "" ? { ...p, productCategory: celularCategory.name } : p,
+          ),
         }))
       }
     }
@@ -90,12 +90,12 @@ export default function PendingOrdersView() {
   }
 
   const addProductToOrder = () => {
-    const celularCategory = categories.find(cat => cat.name.toLowerCase() === 'celular')
+    const celularCategory = categories.find((cat) => cat.name.toLowerCase() === "celular")
     if (!celularCategory) {
       console.error("[v0] Celular category not found")
       return
     }
-    
+
     setOrderForm({
       ...orderForm,
       products: [
@@ -118,16 +118,16 @@ export default function PendingOrdersView() {
   }
 
   const addAccessoryToOrder = () => {
-    console.log("[v0] Available categories:", categories.map(c => c.name))
-    
-    const nonCelularCategories = categories.filter(cat => 
-      cat.name.toLowerCase() !== 'celular'
+    console.log(
+      "[v0] Available categories:",
+      categories.map((c) => c.name),
     )
-    
-    const defaultCategory = nonCelularCategories.length > 0 
-      ? nonCelularCategories[0].name 
-      : categories[0]?.name || "Celular"
-    
+
+    const nonCelularCategories = categories.filter((cat) => cat.name.toLowerCase() !== "celular")
+
+    const defaultCategory =
+      nonCelularCategories.length > 0 ? nonCelularCategories[0].name : categories[0]?.name || "Celular"
+
     setOrderForm({
       ...orderForm,
       products: [
@@ -169,20 +169,20 @@ export default function PendingOrdersView() {
 
   const handleDateInput = (value: string) => {
     // Remove all non-digit and non-slash characters
-    const cleaned = value.replace(/[^\d/]/g, '')
-    
+    const cleaned = value.replace(/[^\d/]/g, "")
+
     // Auto-add slashes after day and month
     let formatted = cleaned
-    
-    if (cleaned.length >= 2 && !cleaned.includes('/')) {
+
+    if (cleaned.length >= 2 && !cleaned.includes("/")) {
       // After typing 2 digits, add first slash (DD/)
-      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2)
-    } else if (cleaned.length >= 5 && cleaned.split('/').length === 2) {
+      formatted = cleaned.slice(0, 2) + "/" + cleaned.slice(2)
+    } else if (cleaned.length >= 5 && cleaned.split("/").length === 2) {
       // After typing DD/MM, add second slash (DD/MM/)
-      const parts = cleaned.split('/')
-      formatted = parts[0] + '/' + parts[1].slice(0, 2) + '/' + parts[1].slice(2)
+      const parts = cleaned.split("/")
+      formatted = parts[0] + "/" + parts[1].slice(0, 2) + "/" + parts[1].slice(2)
     }
-    
+
     // Limit to DD/MM/YYYY format (10 characters)
     if (formatted.length <= 10) {
       setOrderForm({ ...orderForm, expectedDate: formatted })
@@ -190,15 +190,15 @@ export default function PendingOrdersView() {
   }
 
   const convertToISODate = (ddmmyyyy: string): string => {
-    if (!ddmmyyyy || ddmmyyyy.length !== 10) return ''
-    const [day, month, year] = ddmmyyyy.split('/')
-    if (!day || !month || !year) return ''
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    if (!ddmmyyyy || ddmmyyyy.length !== 10) return ""
+    const [day, month, year] = ddmmyyyy.split("/")
+    if (!day || !month || !year) return ""
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
   }
 
   const handleAddOrder = () => {
     console.log("[v0] Attempting to add order, form data:", orderForm)
-    
+
     if (!orderForm.providerId) {
       console.log("[v0] Validation failed: No provider selected")
       alert("Por favor, seleccione un proveedor")
@@ -211,13 +211,13 @@ export default function PendingOrdersView() {
       return
     }
 
-    const invalidProducts = orderForm.products.filter(p => {
+    const invalidProducts = orderForm.products.filter((p) => {
       if (!p.productCategory) {
         return true
       }
 
       const category = getCategoryByName(p.productCategory)
-      
+
       if (!category) {
         console.log("[v0] Category not found for:", p.productCategory)
         return true
@@ -232,7 +232,7 @@ export default function PendingOrdersView() {
         imei: true,
       }
 
-      const isInvalid = (
+      const isInvalid =
         (fields.model && !p.model.trim()) ||
         (fields.storage && !p.storage) ||
         (fields.color && !p.color) ||
@@ -241,7 +241,6 @@ export default function PendingOrdersView() {
         (fields.imei && !p.imei.trim()) ||
         p.costPrice <= 0 ||
         p.salePrice <= 0
-      )
 
       if (isInvalid) {
         console.log("[v0] Invalid product:", p, "Fields required:", fields)
@@ -266,7 +265,7 @@ export default function PendingOrdersView() {
 
     const totalAmount = calculateTotal()
 
-    const isoDate = orderForm.expectedDate ? convertToISODate(orderForm.expectedDate) : ''
+    const isoDate = orderForm.expectedDate ? convertToISODate(orderForm.expectedDate) : ""
 
     addOrder({
       providerId: orderForm.providerId,
@@ -329,10 +328,13 @@ export default function PendingOrdersView() {
           <h2 className="text-3xl font-bold tracking-tight text-gray-900">Pedidos Pendientes</h2>
           <p className="text-gray-600">Gestiona los pedidos realizados a proveedores</p>
         </div>
-        <Dialog open={isOrderModalOpen} onOpenChange={(open) => {
-          setIsOrderModalOpen(open)
-          if (!open) setInitialCategory(undefined)
-        }}>
+        <Dialog
+          open={isOrderModalOpen}
+          onOpenChange={(open) => {
+            setIsOrderModalOpen(open)
+            if (!open) setInitialCategory(undefined)
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setInitialCategory(undefined)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -602,9 +604,7 @@ export default function PendingOrdersView() {
                   maxLength={10}
                   inputMode="numeric"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Formato: DD/MM/YYYY (ejemplo: 25/12/2025)
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Formato: DD/MM/YYYY (ejemplo: 25/12/2025)</p>
               </div>
 
               <div>
@@ -625,43 +625,40 @@ export default function PendingOrdersView() {
                 disabled={
                   !orderForm.providerId ||
                   categories.length === 0 || // Disable if categories not loaded
-                  orderForm.products.some(
-                    (p) => {
-                      if (!p.productCategory) {
-                        return true
-                      }
-
-                      const category = getCategoryByName(p.productCategory)
-                      
-                      if (!category) {
-                        return true
-                      }
-
-                      const fields = category.fields || {
-                        model: true,
-                        storage: true,
-                        color: true,
-                        condition: true,
-                        battery: true,
-                        imei: true,
-                      }
-
-                      // Check if required fields are filled based on category configuration
-                      const missingRequired = (
-                        (fields.model && !p.model.trim()) ||
-                        (fields.storage && !p.storage) ||
-                        (fields.color && !p.color) ||
-                        (fields.condition && !p.condition) ||
-                        (fields.battery && !p.battery.trim()) ||
-                        (fields.imei && !p.imei.trim())
-                      )
-
-                      // Check if prices are valid
-                      const invalidPrices = p.costPrice <= 0 || p.salePrice <= 0
-
-                      return missingRequired || invalidPrices
+                  orderForm.products.some((p) => {
+                    if (!p.productCategory) {
+                      return true
                     }
-                  ) ||
+
+                    const category = getCategoryByName(p.productCategory)
+
+                    if (!category) {
+                      return true
+                    }
+
+                    const fields = category.fields || {
+                      model: true,
+                      storage: true,
+                      color: true,
+                      condition: true,
+                      battery: true,
+                      imei: true,
+                    }
+
+                    // Check if required fields are filled based on category configuration
+                    const missingRequired =
+                      (fields.model && !p.model.trim()) ||
+                      (fields.storage && !p.storage) ||
+                      (fields.color && !p.color) ||
+                      (fields.condition && !p.condition) ||
+                      (fields.battery && !p.battery.trim()) ||
+                      (fields.imei && !p.imei.trim())
+
+                    // Check if prices are valid
+                    const invalidPrices = p.costPrice <= 0 || p.salePrice <= 0
+
+                    return missingRequired || invalidPrices
+                  }) ||
                   calculateTotal() <= 0
                 }
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -679,10 +676,13 @@ export default function PendingOrdersView() {
           <Package className="h-4 w-4 text-blue-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-blue-700">${orders.reduce((sum, order) => sum + order.totalAmount, 0).toFixed(2)}</div>
+          <div className="text-2xl font-bold text-blue-700">
+            ${orders.reduce((sum, order) => sum + order.totalAmount, 0).toFixed(2)}
+          </div>
           <p className="text-xs text-blue-600">
-            {orders.filter(order => order.status === "pending").length} pedido{orders.filter(order => order.status === "pending").length !== 1 ? "s" : ""} pendiente
-            {orders.filter(order => order.status === "pending").length !== 1 ? "s" : ""}
+            {orders.filter((order) => order.status === "pending").length} pedido
+            {orders.filter((order) => order.status === "pending").length !== 1 ? "s" : ""} pendiente
+            {orders.filter((order) => order.status === "pending").length !== 1 ? "s" : ""}
           </p>
         </CardContent>
       </Card>
@@ -698,94 +698,111 @@ export default function PendingOrdersView() {
       </div>
 
       <div className="space-y-4">
-        {orders.filter(
-          (order) =>
-            order.providerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.products.some((p) => p.model.toLowerCase().includes(searchTerm.toLowerCase())),
-        ).map((order) => (
-          <Card key={order.id} className="bg-white border-gray-200">
-            <CardHeader>
-              <div
-                className="flex items-center justify-between cursor-pointer"
-                onClick={() => toggleOrderExpansion(order.id)}
-              >
-                <div className="flex items-center gap-3">
-                  <div>
-                    <CardTitle className="text-gray-900">{order.providerName}</CardTitle>
-                    <p className="text-sm text-gray-600">
-                      Pedido: {order.id} • {formatDisplayDate(parseLocalDate(order.orderDate))}
-                    </p>
+        {orders
+          .filter(
+            (order) =>
+              order.providerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              order.products.some((p) => p.model.toLowerCase().includes(searchTerm.toLowerCase())),
+          )
+          .map((order) => (
+            <Card key={order.id} className="bg-white border-gray-200 overflow-hidden">
+              <CardHeader className="p-3 md:p-6">
+                <div
+                  className="flex flex-col md:flex-row md:items-center md:justify-between cursor-pointer gap-2"
+                  onClick={() => toggleOrderExpansion(order.id)}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-gray-900 truncate">{order.providerName}</CardTitle>
+                      <p className="text-sm text-gray-600">
+                        <span className="hidden md:inline">Pedido: {order.id} • </span>
+                        {formatDisplayDate(parseLocalDate(order.orderDate))}
+                      </p>
+                    </div>
+                    <div className="text-sm text-gray-500 whitespace-nowrap">
+                      {order.products.length} producto{order.products.length !== 1 ? "s" : ""}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    {order.products.length} producto{order.products.length !== 1 ? "s" : ""}
+                  <div className="flex items-center justify-between md:justify-end gap-2">
+                    <Badge variant={order.status === "pending" ? "default" : "secondary"}>
+                      {order.status === "pending" ? "Pendiente" : "Recibido"}
+                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-gray-900">${order.totalAmount.toFixed(2)}</span>
+                      {expandedOrders.has(order.id) ? (
+                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={order.status === "pending" ? "default" : "secondary"}>
-                    {order.status === "pending" ? "Pendiente" : "Recibido"}
-                  </Badge>
-                  <span className="text-lg font-bold text-gray-900">${order.totalAmount.toFixed(2)}</span>
-                  {expandedOrders.has(order.id) ? (
-                    <ChevronUp className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
-                  )}
-                </div>
-              </div>
-            </CardHeader>
+              </CardHeader>
 
-            {expandedOrders.has(order.id) && (
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Productos</h4>
-                    <div className="space-y-2">
-                      {order.products.map((product, index) => (
-                        <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                          <div className="flex justify-between items-start">
-                            <div className="space-y-1">
-                              <div className="font-medium text-gray-900">
-                                {product.model} {product.storage} - {product.color}
+              {expandedOrders.has(order.id) && (
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Productos</h4>
+                      <div className="space-y-2">
+                        {order.products.map((product, index) => (
+                          <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                            <div className="flex justify-between items-start">
+                              <div className="space-y-1">
+                                <div className="font-medium text-gray-900">
+                                  {product.model} {product.storage} - {product.color}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  Estado: {product.condition} • Batería: {product.battery}% • IMEI: {product.imei}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  Cantidad: {product.quantity} • Costo: ${product.costPrice} • Venta: $
+                                  {product.salePrice}
+                                </div>
                               </div>
-                              <div className="text-sm text-gray-600">
-                                Estado: {product.condition} • Batería: {product.battery}% • IMEI: {product.imei}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                Cantidad: {product.quantity} • Costo: ${product.costPrice} • Venta: ${product.salePrice}
-                              </div>
+                              <span className="text-gray-900 font-medium">${product.totalCost.toFixed(2)}</span>
                             </div>
-                            <span className="text-gray-900 font-medium">${product.totalCost.toFixed(2)}</span>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {order.expectedDate && (
-                    <div>
-                      <span className="text-sm text-gray-600">
-                        Fecha esperada: {formatDisplayDate(parseLocalDate(order.expectedDate))}
-                      </span>
-                    </div>
-                  )}
+                    {order.expectedDate && (
+                      <div>
+                        <span className="text-sm text-gray-600">
+                          Fecha esperada: {formatDisplayDate(parseLocalDate(order.expectedDate))}
+                        </span>
+                      </div>
+                    )}
 
-                  {order.notes && (
-                    <div>
-                      <span className="text-sm text-gray-600">Notas: {order.notes}</span>
-                    </div>
-                  )}
+                    {order.notes && (
+                      <div>
+                        <span className="text-sm text-gray-600">Notas: {order.notes}</span>
+                      </div>
+                    )}
 
-                  <div className="flex gap-2 pt-2">
-                    {order.status === "pending" ? (
-                      <>
-                        <Button
-                          onClick={() => handleMarkAsReceived(order)}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          size="sm"
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Marcar como Recibido
-                        </Button>
+                    <div className="flex gap-2 pt-2">
+                      {order.status === "pending" ? (
+                        <>
+                          <Button
+                            onClick={() => handleMarkAsReceived(order)}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            size="sm"
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Marcar como Recibido
+                          </Button>
+                          <Button
+                            onClick={() => deleteOrder(order.id)}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Eliminar
+                          </Button>
+                        </>
+                      ) : (
                         <Button
                           onClick={() => deleteOrder(order.id)}
                           variant="outline"
@@ -793,26 +810,15 @@ export default function PendingOrdersView() {
                           className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
-                          Eliminar
+                          Eliminar Pedido Recibido
                         </Button>
-                      </>
-                    ) : (
-                      <Button
-                        onClick={() => deleteOrder(order.id)}
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Eliminar Pedido Recibido
-                      </Button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        ))}
+                </CardContent>
+              )}
+            </Card>
+          ))}
       </div>
 
       {orders.filter(

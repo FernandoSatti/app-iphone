@@ -5,16 +5,16 @@
  * Manejo correcto del formato del input type="date"
  */
 export function parseArgentinaDate(dateString: string): Date | null {
-  if (!dateString) return null;
+  if (!dateString) return null
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    const [year, month, day] = dateString.split("-").map(Number);
-    return new Date(year, month - 1, day);
+    const [year, month, day] = dateString.split("-").map(Number)
+    return new Date(year, month - 1, day)
   }
 
   // Caso: ISO o cualquier otra fecha
-  const d = new Date(dateString);
-  return isNaN(d.getTime()) ? null : d;
+  const d = new Date(dateString)
+  return isNaN(d.getTime()) ? null : d
 }
 
 /**
@@ -22,16 +22,16 @@ export function parseArgentinaDate(dateString: string): Date | null {
  * Totalmente independiente del locale del entorno
  */
 export function formatArgentinaDate(date: Date | string | null | undefined): string {
-  if (!date) return "--/--/----";
+  if (!date) return "--/--/----"
 
-  const d = typeof date === "string" ? parseArgentinaDate(date) : date;
-  if (!d || isNaN(d.getTime())) return "--/--/----";
+  const d = typeof date === "string" ? parseArgentinaDate(date) : date
+  if (!d || isNaN(d.getTime())) return "--/--/----"
 
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  const year = d.getFullYear()
 
-  return `${day}/${month}/${year}`;
+  return `${day}/${month}/${year}`
 }
 
 /**
@@ -53,5 +53,28 @@ export const toISODate = (d: Date): string => {
   return `${y}-${m}-${day}`
 }
 
-export const parseLocalDate = parseArgentinaDate;
-export const formatDisplayDate = formatArgentinaDate;
+/**
+ * Convierte una fecha en formato DD/MM/YYYY a formato ISO (YYYY-MM-DD)
+ * Útil para convertir fechas ingresadas por el usuario a formato de base de datos
+ */
+export function convertToISODate(dateString: string): string {
+  if (!dateString) return ""
+
+  // Remover cualquier carácter que no sea número o /
+  const cleaned = dateString.replace(/[^\d/]/g, "")
+
+  // Verificar formato DD/MM/YYYY
+  const match = cleaned.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!match) return ""
+
+  const [, day, month, year] = match
+
+  // Validar que sea una fecha válida
+  const date = new Date(Number(year), Number(month) - 1, Number(day))
+  if (isNaN(date.getTime())) return ""
+
+  return `${year}-${month}-${day}`
+}
+
+export const parseLocalDate = parseArgentinaDate
+export const formatDisplayDate = formatArgentinaDate

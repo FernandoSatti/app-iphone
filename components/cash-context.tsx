@@ -25,13 +25,14 @@ export type CashTransaction = {
   description: string
   relatedTo?: "sale" | "purchase" | "expense" | "other"
   relatedId?: string
-  expenseType?: "operational" | "withdrawal" | "stock_payment" | "other"
+  expenseType?: "operational" | "withdrawal" | "stock_payment"
 }
 
 type CashContextType = {
   transactions: CashTransaction[]
   addTransaction: (transaction: Omit<CashTransaction, "id">) => Promise<void>
   removeTransaction: (id: string) => Promise<void>
+  removeTransactionByRelatedId: (relatedId: string) => Promise<void>
   getCashBalance: () => number
   getTransactionsByDateRange: (from: Date, to: Date) => CashTransaction[]
   getTransactionsByCategory: (category: string) => CashTransaction[]
@@ -91,11 +92,11 @@ export function CashProvider({ children }: { children: ReactNode }) {
         category: transaction.category,
         description: transaction.description,
         expense_type: transaction.expenseType,
+        related_id: transaction.relatedId,
       })
 
       if (error) throw error
 
-      // Update local state
       const newTransaction: CashTransaction = {
         ...transaction,
         id: uniqueId,
@@ -113,10 +114,56 @@ export function CashProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error
 
-      // Update local state
       setTransactions((prev) => prev.filter((t) => t.id !== id))
     } catch (error) {
       console.error("[v0] Error removing cash transaction:", error)
+      throw error
+    }
+  }
+
+  const removeTransactionByRelatedId = async (relatedId: string) => {
+    try {
+      const { data: byRelatedId, error: searchError } = await supabase
+        .from("cash_transactions")
+        .select("id")
+        .eq("related_id", relatedId)
+
+      if (byRelatedId && byRelatedId.length > 0) {
+        const { error } = await supabase.from("cash_transactions").delete().eq("related_id", relatedId)
+
+        if (error) throw error
+
+        const idsToRemove = byRelatedId.map((t) => t.id)
+        setTransactions((prev) => prev.filter((t) => !idsToRemove.includes(t.id)))
+        console.log("[v0] Removed transaction by related_id:", relatedId)
+        return
+      }
+
+      const { data: byDescription, error: descError } = await supabase
+        .from("cash_transactions")
+        .select("id")
+        .ilike("description", `%${relatedId}%`)
+
+      if (byDescription && byDescription.length > 0) {
+        const { error } = await supabase
+          .from("cash_transactions")
+          .delete()
+          .in(
+            "id",
+            byDescription.map((t) => t.id),
+          )
+
+        if (error) throw error
+
+        const idsToRemove = byDescription.map((t) => t.id)
+        setTransactions((prev) => prev.filter((t) => !idsToRemove.includes(t.id)))
+        console.log("[v0] Removed transaction by description match:", relatedId)
+        return
+      }
+
+      console.log("[v0] No cash transaction found for sale:", relatedId)
+    } catch (error) {
+      console.error("[v0] Error removing transaction by related ID:", error)
       throw error
     }
   }
@@ -159,6 +206,7 @@ export function CashProvider({ children }: { children: ReactNode }) {
         transactions,
         addTransaction,
         removeTransaction,
+        removeTransactionByRelatedId,
         getCashBalance,
         getTransactionsByDateRange,
         getTransactionsByCategory,

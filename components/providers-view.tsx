@@ -96,60 +96,98 @@ const ProvidersView = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-900">
-                    <TableHead className="text-white font-semibold">Nombre</TableHead>
-                    <TableHead className="text-white font-semibold">Teléfono</TableHead>
-                    <TableHead className="text-white font-semibold">Email</TableHead>
-                    <TableHead className="text-white font-semibold">Fecha Registro</TableHead>
-                    <TableHead className="text-white font-semibold w-[5%]">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProviders.map((provider) => (
-                    <TableRow key={provider.id}>
-                      <TableCell className="font-medium text-base">
+            <>
+              <div className="md:hidden space-y-3">
+                {filteredProviders.map((provider) => (
+                  <div key={provider.id} className="border rounded-lg p-3 bg-white shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-gray-500" />
-                          {provider.name}
+                          <Building2 className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                          <p className="font-medium text-base truncate">{provider.name}</p>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-base">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-gray-500" />
-                          {provider.phone}
+                        <div className="flex items-center gap-2 mt-1">
+                          <Phone className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                          <span className="text-sm text-gray-700">{provider.phone}</span>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-base">
-                        {provider.email ? (
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-gray-500" />
-                            <a href={`mailto:${provider.email}`} className="text-blue-600 hover:underline">
+                        {provider.email && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <Mail className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                            <a href={`mailto:${provider.email}`} className="text-sm text-blue-600 truncate">
                               {provider.email}
                             </a>
                           </div>
-                        ) : (
-                          <span className="text-gray-400">--</span>
                         )}
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">{formatDisplayDate(provider.dateAdded)}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDeleteProvider(provider.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
+                        <p className="text-xs text-gray-500 mt-1">{formatDisplayDate(provider.dateAdded)}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => handleDeleteProvider(provider.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-900">
+                      <TableHead className="text-white font-semibold">Nombre</TableHead>
+                      <TableHead className="text-white font-semibold">Teléfono</TableHead>
+                      <TableHead className="text-white font-semibold">Email</TableHead>
+                      <TableHead className="text-white font-semibold">Fecha Registro</TableHead>
+                      <TableHead className="text-white font-semibold w-[5%]">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProviders.map((provider) => (
+                      <TableRow key={provider.id}>
+                        <TableCell className="font-medium text-base">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-gray-500" />
+                            {provider.name}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-base">
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-gray-500" />
+                            {provider.phone}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-base">
+                          {provider.email ? (
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-gray-500" />
+                              <a href={`mailto:${provider.email}`} className="text-blue-600 hover:underline">
+                                {provider.email}
+                              </a>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">--</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">{formatDisplayDate(provider.dateAdded)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDeleteProvider(provider.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

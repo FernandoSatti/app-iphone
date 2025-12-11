@@ -104,49 +104,84 @@ const ClientsView = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-900">
-                    <TableHead className="text-white font-semibold">Nombre</TableHead>
-                    <TableHead className="text-white font-semibold">Teléfono</TableHead>
-                    <TableHead className="text-white font-semibold">Fecha Registro</TableHead>
-                    <TableHead className="text-white font-semibold w-[5%]">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium text-base">
+            <>
+              <div className="md:hidden space-y-3">
+                {filteredClients.map((client) => (
+                  <div key={client.id} className="border rounded-lg p-3 bg-white shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-gray-500" />
-                          {client.name}
+                          <User className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                          <p className="font-medium text-base truncate">{client.name}</p>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-base">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-gray-500" />
-                          <a href={`tel:${client.phone}`} className="text-blue-600 hover:underline">
+                        <div className="flex items-center gap-2 mt-1">
+                          <Phone className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                          <a href={`tel:${client.phone}`} className="text-sm text-blue-600">
                             {client.phone}
                           </a>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">{formatDisplayDate(client.dateAdded)}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDeleteClient(client.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                          <span className="text-xs text-gray-500">{formatDisplayDate(client.dateAdded)}</span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => handleDeleteClient(client.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-900">
+                      <TableHead className="text-white font-semibold">Nombre</TableHead>
+                      <TableHead className="text-white font-semibold">Teléfono</TableHead>
+                      <TableHead className="text-white font-semibold">Fecha Registro</TableHead>
+                      <TableHead className="text-white font-semibold w-[5%]">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClients.map((client) => (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-medium text-base">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-gray-500" />
+                            {client.name}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-base">
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-gray-500" />
+                            <a href={`tel:${client.phone}`} className="text-blue-600 hover:underline">
+                              {client.phone}
+                            </a>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">{formatDisplayDate(client.dateAdded)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDeleteClient(client.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

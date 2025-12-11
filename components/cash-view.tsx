@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { PlusCircle, DollarSign, TrendingUp, TrendingDown, Trash2, Search, CalendarIcon } from 'lucide-react'
+import { PlusCircle, DollarSign, TrendingUp, TrendingDown, Trash2, Search, CalendarIcon } from "lucide-react"
 import { useCash, type CashTransaction } from "@/components/cash-context"
 import type { DateRange } from "react-day-picker"
 import { format } from "date-fns"
@@ -209,18 +209,18 @@ const CashView = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Caja</h1>
-          <p className="text-gray-600 mt-2">Control de ingresos y egresos de dinero</p>
+    <div className="space-y-6 overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold">Caja</h1>
+          <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Control de ingresos y egresos de dinero</p>
           {quickPeriod === "current-month" && (
-            <p className="text-sm text-blue-600 mt-1">
+            <p className="text-xs sm:text-sm text-blue-600 mt-1">
               Mostrando: Este mes ({new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" })})
             </p>
           )}
           {quickPeriod === "last-month" && (
-            <p className="text-sm text-blue-600 mt-1">
+            <p className="text-xs sm:text-sm text-blue-600 mt-1">
               Mostrando: Mes anterior (
               {new Date(new Date().getFullYear(), new Date().getMonth() - 1).toLocaleDateString("es-AR", {
                 month: "long",
@@ -230,20 +230,20 @@ const CashView = () => {
             </p>
           )}
           {quickPeriod === "current-year" && (
-            <p className="text-sm text-blue-600 mt-1">Mostrando: Este año ({new Date().getFullYear()})</p>
+            <p className="text-xs sm:text-sm text-blue-600 mt-1">Mostrando: Este año ({new Date().getFullYear()})</p>
           )}
           {quickPeriod === "custom" && dateRange?.from && (
-            <p className="text-sm text-blue-600 mt-1">
+            <p className="text-xs sm:text-sm text-blue-600 mt-1">
               Mostrando: {format(dateRange.from, "dd/MM/yyyy")}
               {dateRange.to && ` - ${format(dateRange.to, "dd/MM/yyyy")}`}
             </p>
           )}
         </div>
-        <div className="text-right">
-          <p className={`text-2xl font-bold ${cashBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+        <div className="text-left sm:text-right">
+          <p className={`text-xl sm:text-2xl font-bold ${cashBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
             {formatCurrency(cashBalance)}
           </p>
-          <p className="text-sm text-gray-500">Saldo en caja</p>
+          <p className="text-xs sm:text-sm text-gray-500">Saldo en caja</p>
         </div>
       </div>
 
@@ -282,11 +282,10 @@ const CashView = () => {
         </Card>
       </div>
 
-      {/* Controles de búsqueda y filtros */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Select value={quickPeriod} onValueChange={setQuickPeriod}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[120px] sm:w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -339,9 +338,9 @@ const CashView = () => {
             className="pl-10"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[100px] sm:w-[140px]">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
@@ -351,7 +350,7 @@ const CashView = () => {
             </SelectContent>
           </Select>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[100px] sm:w-[160px]">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -363,9 +362,13 @@ const CashView = () => {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => setShowAddForm(!showAddForm)} className="bg-green-600 hover:bg-green-700 text-slate-50">
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Nuevo Movimiento
+          <Button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-green-600 hover:bg-green-700 text-slate-50 px-2 sm:px-4"
+          >
+            <PlusCircle className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nuevo Movimiento</span>
+            <span className="sm:hidden ml-1">Nuevo</span>
           </Button>
         </div>
       </div>
@@ -498,56 +501,101 @@ const CashView = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-900">
-                    <TableHead className="text-white font-semibold">Fecha</TableHead>
-                    <TableHead className="text-white font-semibold">Tipo</TableHead>
-                    <TableHead className="text-white font-semibold">Categoría</TableHead>
-                    <TableHead className="text-white font-semibold">Descripción</TableHead>
-                    <TableHead className="text-white font-semibold">Medio de Pago</TableHead>
-                    <TableHead className="text-white font-semibold text-right">Monto</TableHead>
-                    <TableHead className="text-white font-semibold w-[5%]">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTransactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell className="text-sm">{formatDate(transaction.date)}</TableCell>
-                      <TableCell>
+            <>
+              <div className="md:hidden space-y-2 max-w-full">
+                {filteredTransactions.map((transaction) => (
+                  <div
+                    key={transaction.id}
+                    className="bg-white border rounded-lg p-2 shadow-sm max-w-full overflow-hidden"
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="flex items-center gap-1 min-w-0 flex-1">
                         <Badge
-                          className={
+                          className={`text-xs px-1.5 py-0.5 ${
                             transaction.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                          }
+                          }`}
                         >
-                          {transaction.type === "income" ? "Ingreso" : "Egreso"}
+                          {transaction.type === "income" ? "Ing" : "Egr"}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">{transaction.category}</TableCell>
-                      <TableCell className="text-sm">{transaction.description}</TableCell>
-                      <TableCell className="text-sm">{getPaymentMethodLabel(transaction.paymentMethod)}</TableCell>
-                      <TableCell
-                        className={`text-right font-medium ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}
+                        <span className="text-xs text-gray-500 truncate">{formatDate(transaction.date)}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 flex-shrink-0"
+                        onClick={() => handleDeleteTransaction(transaction.id)}
+                      >
+                        <Trash2 className="h-3 w-3 text-red-500" />
+                      </Button>
+                    </div>
+                    <p className="text-sm font-medium truncate">{transaction.category}</p>
+                    <p className="text-xs text-gray-600 truncate max-w-[200px]">{transaction.description}</p>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-xs text-gray-500 truncate max-w-[100px]">
+                        {getPaymentMethodLabel(transaction.paymentMethod)}
+                      </span>
+                      <span
+                        className={`font-semibold text-sm ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}
                       >
                         {transaction.type === "income" ? "+" : "-"}
                         {formatCurrency(transaction.amount)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDeleteTransaction(transaction.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-900">
+                      <TableHead className="text-white font-semibold">Fecha</TableHead>
+                      <TableHead className="text-white font-semibold">Tipo</TableHead>
+                      <TableHead className="text-white font-semibold">Categoría</TableHead>
+                      <TableHead className="text-white font-semibold">Descripción</TableHead>
+                      <TableHead className="text-white font-semibold">Medio de Pago</TableHead>
+                      <TableHead className="text-white font-semibold text-right">Monto</TableHead>
+                      <TableHead className="text-white font-semibold w-[5%]">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTransactions.map((transaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell className="text-sm">{formatDate(transaction.date)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              transaction.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                            }
+                          >
+                            {transaction.type === "income" ? "Ingreso" : "Egreso"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{transaction.category}</TableCell>
+                        <TableCell className="text-sm">{transaction.description}</TableCell>
+                        <TableCell className="text-sm">{getPaymentMethodLabel(transaction.paymentMethod)}</TableCell>
+                        <TableCell
+                          className={`text-right font-medium ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {transaction.type === "income" ? "+" : "-"}
+                          {formatCurrency(transaction.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDeleteTransaction(transaction.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

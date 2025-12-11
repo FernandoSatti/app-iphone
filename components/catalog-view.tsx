@@ -223,7 +223,8 @@ const CatalogView = () => {
               disabled={filteredProducts.length === 0}
             >
               <Download className="h-4 w-4 mr-2" />
-              Exportar Excel
+              <span className="hidden sm:inline">Exportar Excel</span>
+              <span className="sm:hidden">Excel</span>
             </Button>
           </div>
         </CardHeader>
@@ -240,97 +241,171 @@ const CatalogView = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-900">
-                    <TableHead className="text-white font-semibold">Tipo</TableHead>
-                    <TableHead className="text-white font-semibold">Modelo</TableHead>
-                    <TableHead className="text-white font-semibold">Almacenamiento</TableHead>
-                    <TableHead className="text-white font-semibold">Color</TableHead>
-                    <TableHead className="text-white font-semibold">Estado</TableHead>
-                    <TableHead className="text-white font-semibold">Condición</TableHead>
-                    <TableHead className="text-white font-semibold">Batería</TableHead>
-                    <TableHead className="text-white font-semibold">Proveedor</TableHead>
-                    <TableHead className="text-white font-semibold">IMEI</TableHead>
-                    <TableHead className="text-white font-semibold text-right">Precio Costo</TableHead>
-                    <TableHead className="text-white font-semibold text-right">Precio Venta</TableHead>
-                    <TableHead className="text-white font-semibold">Fecha</TableHead>
-                    <TableHead className="text-white font-semibold w-[5%]">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.map((product) => {
-                    const category = categories.find((cat) => cat.name === product.productType) || { fields: {} }
-                    const fields = category.fields
+            <>
+              <div className="md:hidden space-y-3">
+                {filteredProducts.map((product) => {
+                  const category = categories.find((cat) => cat.name === product.productType) || { fields: {} }
+                  const fields = category.fields
 
-                    return (
-                      <TableRow key={product.id}>
-                        <TableCell className="text-sm">{product.productType || "Celular"}</TableCell>
-                        <TableCell className="font-medium">{product.model}</TableCell>
-                        <TableCell>{fields.storage ? product.storage : "--"}</TableCell>
-                        <TableCell>{fields.color ? product.color : "--"}</TableCell>
-                        <TableCell>{getStatusBadge(product.status)}</TableCell>
-                        <TableCell>
-                          {fields.condition ? (
-                            getConditionBadge(product.condition)
-                          ) : (
-                            <span className="text-gray-400">--</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {fields.battery ? (
-                            <div className="flex items-center">
-                              <div
-                                className={`w-2 h-2 rounded-full mr-2 ${
-                                  product.battery >= 80
-                                    ? "bg-green-500"
-                                    : product.battery >= 50
-                                      ? "bg-yellow-500"
-                                      : "bg-red-500"
-                                }`}
-                              ></div>
-                              {product.battery}%
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">--</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm">{product.provider}</TableCell>
-                        <TableCell className="font-mono text-xs">{fields.imei ? product.imei : "--"}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          ${product.costPrice?.toFixed(0) || "0"}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-green-600">
-                          ${product.salePrice?.toFixed(0) || "0"}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-500">{product.dateAdded}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleEditProduct(product)}
-                            >
-                              <Edit className="h-4 w-4 text-blue-500" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleDeleteProduct(product)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
+                  return (
+                    <div key={product.id} className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{product.model}</p>
+                          <p className="text-xs text-gray-500">
+                            {fields.storage ? product.storage : ""} {fields.color ? `• ${product.color}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 ml-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleEditProduct(product)}
+                          >
+                            <Edit className="h-3.5 w-3.5 text-blue-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleDeleteProduct(product)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(product.status)}
+                          {fields.condition && getConditionBadge(product.condition)}
+                        </div>
+                        {fields.battery && (
+                          <div className="flex items-center text-gray-600">
+                            <div
+                              className={`w-2 h-2 rounded-full mr-1 ${
+                                product.battery >= 80
+                                  ? "bg-green-500"
+                                  : product.battery >= 50
+                                    ? "bg-yellow-500"
+                                    : "bg-red-500"
+                              }`}
+                            ></div>
+                            {product.battery}%
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t">
+                        <div className="text-xs text-gray-500">
+                          <span className="block">Costo: ${product.costPrice?.toFixed(0) || "0"}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-green-600">${product.salePrice?.toFixed(0) || "0"}</span>
+                        </div>
+                      </div>
+
+                      {fields.imei && product.imei && (
+                        <p className="text-xs text-gray-400 font-mono truncate">IMEI: {product.imei}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-900">
+                      <TableHead className="text-white font-semibold">Tipo</TableHead>
+                      <TableHead className="text-white font-semibold">Modelo</TableHead>
+                      <TableHead className="text-white font-semibold">Almacenamiento</TableHead>
+                      <TableHead className="text-white font-semibold">Color</TableHead>
+                      <TableHead className="text-white font-semibold">Estado</TableHead>
+                      <TableHead className="text-white font-semibold">Condición</TableHead>
+                      <TableHead className="text-white font-semibold">Batería</TableHead>
+                      <TableHead className="text-white font-semibold">Proveedor</TableHead>
+                      <TableHead className="text-white font-semibold">IMEI</TableHead>
+                      <TableHead className="text-white font-semibold text-right">Precio Costo</TableHead>
+                      <TableHead className="text-white font-semibold text-right">Precio Venta</TableHead>
+                      <TableHead className="text-white font-semibold">Fecha</TableHead>
+                      <TableHead className="text-white font-semibold w-[5%]">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProducts.map((product) => {
+                      const category = categories.find((cat) => cat.name === product.productType) || { fields: {} }
+                      const fields = category.fields
+
+                      return (
+                        <TableRow key={product.id}>
+                          <TableCell className="text-sm">{product.productType || "Celular"}</TableCell>
+                          <TableCell className="font-medium">{product.model}</TableCell>
+                          <TableCell>{fields.storage ? product.storage : "--"}</TableCell>
+                          <TableCell>{fields.color ? product.color : "--"}</TableCell>
+                          <TableCell>{getStatusBadge(product.status)}</TableCell>
+                          <TableCell>
+                            {fields.condition ? (
+                              getConditionBadge(product.condition)
+                            ) : (
+                              <span className="text-gray-400">--</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {fields.battery ? (
+                              <div className="flex items-center">
+                                <div
+                                  className={`w-2 h-2 rounded-full mr-2 ${
+                                    product.battery >= 80
+                                      ? "bg-green-500"
+                                      : product.battery >= 50
+                                        ? "bg-yellow-500"
+                                        : "bg-red-500"
+                                  }`}
+                                ></div>
+                                {product.battery}%
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">--</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">{product.provider}</TableCell>
+                          <TableCell className="font-mono text-xs">{fields.imei ? product.imei : "--"}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            ${product.costPrice?.toFixed(0) || "0"}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-green-600">
+                            ${product.salePrice?.toFixed(0) || "0"}
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-500">{product.dateAdded}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleEditProduct(product)}
+                              >
+                                <Edit className="h-4 w-4 text-blue-500" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleDeleteProduct(product)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

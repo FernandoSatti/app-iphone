@@ -9,15 +9,34 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { Search, Users, DollarSign, ChevronDown, ChevronRight, Trash2, CalendarIcon, CheckCircle } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Search,
+  Users,
+  DollarSign,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  CalendarIcon,
+  CheckCircle,
+  Plus,
+} from "lucide-react"
 import { useAccounts } from "./account-context"
 import { useCash } from "./cash-context"
 import type { DateRange } from "react-day-picker"
 import { format } from "date-fns"
-import { parseLocalDate, formatDisplayDate } from "@/lib/date-helpers"
+import { parseLocalDate, formatDisplayDate, convertToISODate } from "@/lib/date-helpers"
 
 export default function ClientAccountsView() {
-  const { getAllClientAccounts, addPaymentFromClient, removeTransaction } = useAccounts() // Use getAllClientAccounts instead of getClientsWithBalance
+  const { getAllClientAccounts, addPaymentFromClient, addDebtToClient, removeTransaction } = useAccounts()
   const { addTransaction } = useCash()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedClient, setSelectedClient] = useState<string | null>(null)
@@ -29,12 +48,19 @@ export default function ClientAccountsView() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [quickPeriod, setQuickPeriod] = useState<string>("all")
 
-  const allClientAccounts = getAllClientAccounts() // Get all client accounts including those with zero balance
+  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false)
+  const [debtForm, setDebtForm] = useState({
+    clientId: "",
+    amount: "",
+    description: "",
+    dueDate: "",
+  })
+
+  const allClientAccounts = getAllClientAccounts()
 
   const getFilteredClients = () => {
-    let baseClients = allClientAccounts // Use all client accounts as base
+    let baseClients = allClientAccounts
 
-    // Apply search filter
     baseClients = baseClients.filter((client) => client.clientName.toLowerCase().includes(searchTerm.toLowerCase()))
 
     if (quickPeriod === "all" && !dateRange?.from && !dateRange?.to) {
@@ -51,7 +77,6 @@ export default function ClientAccountsView() {
       .map((client) => {
         let filteredTransactions = client.transactions
 
-        // Apply date filtering
         if (quickPeriod === "current-month") {
           const now = new Date()
           const currentYear = now.getFullYear()
@@ -92,7 +117,6 @@ export default function ClientAccountsView() {
           })
         }
 
-        // Calculate balance for filtered transactions
         const balance = filteredTransactions.reduce((sum, transaction) => sum + transaction.amount, 0)
 
         return {
@@ -149,10 +173,10 @@ export default function ClientAccountsView() {
     addTransaction({
       type: "income",
       amount,
-      category: "Cobranzas", // Categoría específica para cobranzas
+      category: "Cobranzas",
       description: `Cobro de cliente: ${clientName}`,
       date: new Date().toISOString().split("T")[0],
-      paymentMethod: "cash", // Valor por defecto
+      paymentMethod: "cash",
     })
 
     setSelectedClient(null)
@@ -175,7 +199,6 @@ export default function ClientAccountsView() {
       if (client && client.transactions.length > 0) {
         console.log("[v0] Removing", client.transactions.length, "transactions")
 
-        // Remove all transactions for this client
         client.transactions.forEach((transaction) => {
           console.log("[v0] Removing transaction:", transaction.id)
           removeTransaction(clientId, transaction.id)
@@ -186,6 +209,37 @@ export default function ClientAccountsView() {
         console.log("[v0] No client found or no transactions to remove")
       }
     }
+  }
+
+  const handleDateInput = (value: string) => {
+    let cleaned = value.replace(/\D/g, "")
+    if (cleaned.length >= 2) {
+      cleaned = cleaned.slice(0, 2) + "/" + cleaned.slice(2)
+    }
+    if (cleaned.length >= 5) {
+      cleaned = cleaned.slice(0, 5) + "/" + cleaned.slice(5, 9)
+    }
+    setDebtForm({ ...debtForm, dueDate: cleaned })
+  }
+
+  const handleAddDebt = () => {
+    if (!debtForm.clientId || !debtForm.amount || !debtForm.description) return
+
+    const amount = Number.parseFloat(debtForm.amount)
+    const selectedClient = allClientAccounts.find((c) => c.clientId === debtForm.clientId)
+    const clientName = selectedClient?.clientName || "Cliente Desconocido"
+
+    const isoDate = debtForm.dueDate ? convertToISODate(debtForm.dueDate) : ""
+
+    addDebtToClient(debtForm.clientId, clientName, amount, debtForm.description, isoDate || undefined)
+
+    setDebtForm({
+      clientId: "",
+      amount: "",
+      description: "",
+      dueDate: "",
+    })
+    setIsDebtModalOpen(false)
   }
 
   return (
@@ -223,6 +277,91 @@ export default function ClientAccountsView() {
             </p>
           )}
         </div>
+        <Dialog open={isDebtModalOpen} onOpenChange={setIsDebtModalOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-red-600 hover:bg-red-700 text-white">
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar Deuda
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-white border-gray-200">
+            <DialogHeader>
+              <DialogTitle className="text-gray-900">Agregar Deuda Manual</DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Registra una deuda pendiente de un cliente
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="client" className="text-gray-700">
+                  Cliente
+                </Label>
+                <Select
+                  value={debtForm.clientId}
+                  onValueChange={(value) => setDebtForm({ ...debtForm, clientId: value })}
+                >
+                  <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+                    <SelectValue placeholder="Seleccionar cliente" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-gray-200">
+                    {allClientAccounts.map((client) => (
+                      <SelectItem key={client.clientId} value={client.clientId} className="text-gray-900">
+                        {client.clientName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="amount" className="text-gray-700">
+                  Monto
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  placeholder="0.00"
+                  value={debtForm.amount}
+                  onChange={(e) => setDebtForm({ ...debtForm, amount: e.target.value })}
+                  className="bg-white border-gray-300 text-gray-900"
+                />
+              </div>
+              <div>
+                <Label htmlFor="description" className="text-gray-700">
+                  Descripción
+                </Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe el motivo de la deuda..."
+                  value={debtForm.description}
+                  onChange={(e) => setDebtForm({ ...debtForm, description: e.target.value })}
+                  className="bg-white border-gray-300 text-gray-900"
+                />
+              </div>
+              <div>
+                <Label htmlFor="dueDate" className="text-gray-700">
+                  Fecha de Vencimiento (Opcional)
+                </Label>
+                <Input
+                  id="dueDate"
+                  type="text"
+                  placeholder="DD/MM/YYYY"
+                  value={debtForm.dueDate}
+                  onChange={(e) => handleDateInput(e.target.value)}
+                  className="bg-white border-gray-300 text-gray-900"
+                  maxLength={10}
+                />
+                <p className="text-xs text-gray-500 mt-1">Formato: DD/MM/YYYY (ejemplo: 25/12/2025)</p>
+              </div>
+              <Button
+                onClick={handleAddDebt}
+                disabled={!debtForm.clientId || !debtForm.amount || !debtForm.description}
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+              >
+                Registrar Deuda
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
@@ -326,7 +465,6 @@ export default function ClientAccountsView() {
         </div>
       </div>
 
-      {/* Clients List */}
       <div className="space-y-4">
         {filteredClients.map((client) => (
           <Card key={client.clientId} className="bg-white border-gray-200">
@@ -360,7 +498,7 @@ export default function ClientAccountsView() {
                       size="icon"
                       className="w-8 h-8 text-red-500 hover:text-red-700"
                       onClick={(e) => {
-                        e.stopPropagation() // Prevent card expansion
+                        e.stopPropagation()
                         handleDeleteClient(client.clientId, client.clientName)
                       }}
                     >
@@ -408,7 +546,6 @@ export default function ClientAccountsView() {
                     </div>
                   )}
 
-                  {/* Transaction History */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-gray-700">Historial de Transacciones</h4>
                     {client.transactions.map((transaction) => (

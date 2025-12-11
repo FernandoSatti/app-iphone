@@ -61,15 +61,44 @@ export function PendingOrdersProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("pending_orders")
-        .select("*")
+        .select(`
+          *,
+          provider_info:providers!pending_orders_provider_fkey(name)
+        `)
         .order("created_at", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        // If foreign key doesn't exist, fall back to simple query
+        console.log("[v0] Foreign key not found, using simple query")
+        const { data: simpleData, error: simpleError } = await supabase
+          .from("pending_orders")
+          .select("*")
+          .order("created_at", { ascending: false })
+
+        if (simpleError) throw simpleError
+
+        // Load all providers to map IDs to names
+        const { data: providersData } = await supabase.from("providers").select("id, name")
+        const providersMap = new Map((providersData || []).map((p: any) => [p.id, p.name]))
+
+        const mappedData = (simpleData || []).map((item: any) => ({
+          id: item.id,
+          providerId: item.provider,
+          providerName: providersMap.get(item.provider) || item.provider,
+          products: item.products || [],
+          totalAmount: Number(item.total_cost),
+          orderDate: item.order_date,
+          status: item.status,
+        }))
+
+        setOrders(mappedData)
+        return
+      }
 
       const mappedData = (data || []).map((item: any) => ({
         id: item.id,
         providerId: item.provider,
-        providerName: item.provider,
+        providerName: item.provider_info?.name || item.provider,
         products: item.products || [],
         totalAmount: Number(item.total_cost),
         orderDate: item.order_date,
@@ -125,7 +154,7 @@ export function PendingOrdersProvider({ children }: { children: ReactNode }) {
       for (const product of order.products) {
         console.log(`[v0] Processing product: ${product.model}, quantity: ${product.quantity}`)
         console.log(`[v0] Product category: ${product.productCategory}`)
-        
+
         // Create individual inventory items based on quantity
         for (let i = 0; i < product.quantity; i++) {
           const uniqueId = `inv${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -135,7 +164,7 @@ export function PendingOrdersProvider({ children }: { children: ReactNode }) {
             cost_price: product.unitCost || product.costPrice || 0,
             sale_price: product.salePrice || 0,
             status: "Disponible",
-            provider: order.providerName,
+            provider: order.providerId,
             // Required fields with defaults
             model: product.model || "N/A",
             storage: product.storage || "N/A",

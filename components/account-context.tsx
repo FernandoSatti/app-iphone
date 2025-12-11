@@ -41,6 +41,7 @@ type AccountContextType = {
     dueDate?: string,
   ) => void
   addPaymentFromClient: (clientId: string, amount: number, description?: string) => void
+  addDebtToClient: (clientId: string, clientName: string, amount: number, description: string, dueDate?: string) => void
   addPurchaseToProvider: (
     providerId: string,
     providerName: string,
@@ -57,12 +58,13 @@ type AccountContextType = {
     dueDate?: string,
   ) => void
   removeTransaction: (entityId: string, transactionId: string) => void
+  removeTransactionBySaleId: (saleId: string) => Promise<boolean>
   getClientAccount: (clientId: string) => ClientAccount | undefined
   getProviderAccount: (providerId: string) => ProviderAccount | undefined
   getAccountsWithBalance: () => ClientAccount[]
   getClientsWithBalance: () => ClientAccount[]
   getProvidersWithBalance: () => ProviderAccount[]
-  updateSaleStatus: (saleId: string, newStatus: "Acreditado" | "Pendiente" | "Entregado") => void
+  updateSaleStatus: (saleId: string, newStatus: "Acreditado" | "Pendiente" | "Entregado" | "Anulado") => void
   getAllClientAccounts: () => ClientAccount[]
   getAllProviderAccounts: () => ProviderAccount[]
   registerSaleStatusCallback: (callback: (saleId: string, newStatus: "Acreditado" | "Pendiente") => void) => void
@@ -156,7 +158,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     dueDate?: string,
   ) => {
     const transaction: AccountTransaction = {
-      id: `trans_${Date.now()}`,
+      id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: "sale",
       date: getCurrentISODate(),
       description,
@@ -208,7 +210,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   const addPaymentFromClient = async (clientId: string, amount: number, description = "Pago recibido") => {
     const transaction: AccountTransaction = {
-      id: `trans_${Date.now()}`,
+      id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: "payment",
       date: getCurrentISODate(),
       description,
@@ -262,6 +264,62 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  const addDebtToClient = async (
+    clientId: string,
+    clientName: string,
+    amount: number,
+    description: string,
+    dueDate?: string,
+  ) => {
+    const transaction: AccountTransaction = {
+      id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: "manual_debt",
+      date: getCurrentISODate(),
+      description,
+      amount,
+      dueDate,
+    }
+
+    try {
+      const { error } = await supabase.from("account_transactions").insert({
+        id: transaction.id,
+        account_type: "client",
+        account_name: clientName,
+        type: transaction.type,
+        date: transaction.date,
+        description: transaction.description,
+        amount: transaction.amount,
+      })
+
+      if (error) throw error
+    } catch (error) {
+      console.error("[v0] Error saving debt to client:", error)
+      return
+    }
+
+    setClientAccounts((prev) => {
+      const existingAccountIndex = prev.findIndex((acc) => acc.clientId === clientId)
+
+      if (existingAccountIndex >= 0) {
+        const updatedAccounts = [...prev]
+        updatedAccounts[existingAccountIndex] = {
+          ...updatedAccounts[existingAccountIndex],
+          transactions: [...updatedAccounts[existingAccountIndex].transactions, transaction],
+          balance: updatedAccounts[existingAccountIndex].balance + amount,
+        }
+        return updatedAccounts
+      } else {
+        const newAccount: ClientAccount = {
+          clientId,
+          clientName,
+          transactions: [transaction],
+          balance: amount,
+        }
+        return [...prev, newAccount]
+      }
+    })
+  }
+
   const addPurchaseToProvider = async (
     providerId: string,
     providerName: string,
@@ -270,7 +328,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     dueDate?: string,
   ) => {
     const transaction: AccountTransaction = {
-      id: `trans_${Date.now()}`,
+      id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: "purchase",
       date: getCurrentISODate(),
       description,
@@ -320,7 +378,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   const addPaymentToProvider = async (providerId: string, amount: number, description = "Pago realizado") => {
     const transaction: AccountTransaction = {
-      id: `trans_${Date.now()}`,
+      id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: "payment_to_provider",
       date: getCurrentISODate(),
       description,
@@ -369,7 +427,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     dueDate?: string,
   ) => {
     const transaction: AccountTransaction = {
-      id: `trans_${Date.now()}`,
+      id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: "manual_debt",
       date: getCurrentISODate(),
       description,
@@ -464,6 +522,48 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  const removeTransactionBySaleId = async (saleId: string): Promise<boolean> => {
+    try {
+      const { data: transactions, error: findError } = await supabase
+        .from("account_transactions")
+        .select("*")
+        .eq("sale_id", saleId)
+
+      if (findError) throw findError
+
+      if (!transactions || transactions.length === 0) {
+        console.log("[v0] No account transaction found for sale:", saleId)
+        return false
+      }
+
+      const { error: deleteError } = await supabase.from("account_transactions").delete().eq("sale_id", saleId)
+
+      if (deleteError) throw deleteError
+
+      console.log("[v0] Deleted account transactions for sale:", saleId)
+
+      setClientAccounts((prev) => {
+        return prev.map((account) => {
+          const transactionsToRemove = account.transactions.filter((t) => t.saleId === saleId)
+          if (transactionsToRemove.length > 0) {
+            const amountToSubtract = transactionsToRemove.reduce((sum, t) => sum + t.amount, 0)
+            return {
+              ...account,
+              transactions: account.transactions.filter((t) => t.saleId !== saleId),
+              balance: account.balance - amountToSubtract,
+            }
+          }
+          return account
+        })
+      })
+
+      return true
+    } catch (error) {
+      console.error("[v0] Error removing transaction by sale ID:", error)
+      return false
+    }
+  }
+
   const getClientAccount = (clientId: string) => {
     return clientAccounts.find((acc) => acc.clientId === clientId)
   }
@@ -492,7 +592,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     return providerAccounts
   }
 
-  const updateSaleStatus = (saleId: string, newStatus: "Acreditado" | "Pendiente" | "Entregado") => {
+  const updateSaleStatus = (saleId: string, newStatus: "Acreditado" | "Pendiente" | "Entregado" | "Anulado") => {
     console.log(`[v0] Sale status update requested: ${saleId} -> ${newStatus}`)
   }
 
@@ -509,10 +609,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         isLoading,
         addSaleToAccount,
         addPaymentFromClient,
+        addDebtToClient,
         addPurchaseToProvider,
         addPaymentToProvider,
         addDebtToProvider,
         removeTransaction,
+        removeTransactionBySaleId,
         getClientAccount,
         getProviderAccount,
         getAccountsWithBalance: getClientsWithBalance,

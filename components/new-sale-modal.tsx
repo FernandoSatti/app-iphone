@@ -25,6 +25,7 @@ type SelectedProduct = {
   name: string
   price: number
   cost: number
+  imei: string
 }
 
 type TradeIn = {
@@ -72,7 +73,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
     }
   }, [isOpen, user])
 
-  const toggleProductSelection = (product: { id: string; name: string; price: number; cost: number }) => {
+  const toggleProductSelection = (product: { id: string; name: string; price: number; cost: number; imei: string }) => {
     setSelectedProducts((current) => {
       const isSelected = current.some((p) => p.id === product.id)
       if (isSelected) {
@@ -137,6 +138,14 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
       total: totalSalePrice,
       discount: 0,
       totalCost: totalProductCost,
+      paymentType: paymentType === "cash" ? "Contado" : "A Crédito",
+      soldItems: selectedProducts.map((product) => ({
+        name: product.name,
+        price: product.price,
+        cost: product.cost,
+        imei: product.imei,
+        id: product.id,
+      })),
     }
 
     try {
@@ -256,25 +265,26 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
       total: selectedProducts.reduce((sum, item) => sum + item.price, 0) - (tradeInDetails?.takenValue || 0),
     }
 
-    const htmlContent = generateInvoiceHTML(invoiceData)
+ const htmlContent = generateInvoiceHTML(invoiceData)
 
-    // Create a Blob from the HTML content
-    const blob = new Blob([htmlContent], { type: "text/html" })
-    const url = URL.createObjectURL(blob)
+// Abrimos una ventana nueva REAL (no blob)
+const printWindow = window.open("", "_blank")
 
-    // Create a temporary link and click it
-    const link = document.createElement("a")
-    link.href = url
-    link.target = "_blank"
-    link.rel = "noopener noreferrer"
-    document.body.appendChild(link)
-    link.click()
+if (!printWindow) {
+  alert("No se pudo abrir la ventana de impresión")
+  return
+}
 
-    // Clean up
-    setTimeout(() => {
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    }, 100)
+// Escribimos la factura directamente en la ventana
+printWindow.document.open()
+printWindow.document.write(htmlContent)
+printWindow.document.close()
+
+// Esperar a que cargue el contenido (incluye el logo)
+printWindow.onload = () => {
+  printWindow.focus()
+  printWindow.print()
+}
   }
 
   const resetModal = () => {
@@ -568,8 +578,8 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl p-0 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 font-extralight leading-3 text-sm mx-0 w-full h-min md:max-h-[90vh] max-h-screen md:rounded-lg rounded-none">
-        <div className="flex flex-col h-full md:max-h-[90vh] max-h-screen">
+      <DialogContent className="max-w-6xl p-0 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 font-extralight leading-3 text-sm mx-0 w-full md:h-min md:max-h-[90vh] h-screen md:rounded-lg rounded-none">
+        <div className="flex flex-col h-full md:max-h-[90vh]">
           {/* Header */}
           <div className="flex items-center justify-between p-4 md:p-6 border-b bg-white flex-row shrink-0">
             <DialogTitle className="text-xl md:text-2xl font-semibold">Nueva venta</DialogTitle>
@@ -584,7 +594,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              Productos ({selectedProducts.length})
+              Productos
             </button>
             <button
               onClick={() => setMobileTab("details")}
@@ -599,10 +609,10 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
           </div>
 
           {/* Main Content */}
-          <div className="flex flex-1 overflow-hidden md:flex-row flex-col">
+          <div className="flex flex-1 min-h-0 md:overflow-hidden md:flex-row flex-col overflow-hidden">
             {/* Left Column: Product List */}
             <div
-              className={`md:w-[350px] w-full bg-gray-800 text-white flex flex-col ${mobileTab === "details" ? "hidden md:flex" : "flex"}`}
+              className={`md:w-[350px] w-full bg-gray-800 text-white flex flex-col md:max-h-full md:flex-1 flex-1 overflow-hidden ${mobileTab === "details" ? "hidden md:flex" : "flex"}`}
             >
               <div className="p-3 md:p-4 border-b border-gray-700 shrink-0">
                 <Input
@@ -637,7 +647,10 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                 </Select>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-0 leading-4 my-0">
+              <div
+                className="flex-1 min-h-0 overflow-y-auto px-0 leading-4 my-0"
+                style={{ maxHeight: "calc(100vh - 140px)" }}
+              >
                 {filteredInventory.length === 0 ? (
                   <div className="text-center py-12 md:py-20 text-gray-400 px-4">
                     <p className="text-base md:text-lg">
@@ -652,7 +665,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="space-y-1 pb-4">
                     {filteredInventory.map((product) => {
                       const selected = isProductSelected(product.id)
                       const details: string[] = []
@@ -696,6 +709,7 @@ export function NewSaleModal({ isOpen, onOpenChange, onSaleAdd }: NewSaleModalPr
                               name: `${product.model} ${product.storage}`,
                               price: product.salePrice,
                               cost: product.costPrice,
+                              imei: product.imei,
                             })
                           }
                           className={`flex justify-between items-center p-3 md:p-3 cursor-pointer transition-colors border-b border-gray-700 ${
